@@ -1,0 +1,9 @@
+In Audacity
+High pass and low pass filters from 300hz to 3kHz. Sample is filtered and normalized and dithered when exported as an 8-bit signed PCM. 
+
+In Cruncher
+Find the min/max of the 8bit signed values and scale to get as close to the 0-255 span as possible. Then before crunching to 4-bits I tried adding in different rounding values being careful to not roll over 255.
+
+A rounding value of 8 made for a vast reduction in noise but I sounded like I had a speech impediment as there were no 'Sssss' sounds. A rounding value of 5 was better and a value of 2 seemed like the best compromise.
+
+%appdata%\audacity\Macros
