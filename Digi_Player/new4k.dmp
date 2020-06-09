@@ -1,0 +1,870 @@
+00001  0000             ;///////////////////////////////////////////////////////////////////////////////
+00002  0001             ; A TRY AT AN INTERPOLATING DIGI PLAYER
+00003  0001             
+00004  0001             N0L        = $19
+00005  0001             N0M        = $20
+00006  0001             N0H        = $21
+00007  0001             
+00008  0001             FREQ       = $80           ; CIA NMI TIMER DELAY, 8KHZ
+00009  0001             
+00010  0001             
+00011  0001             *=         $1000
+00012  1000             
+00013  1000             ;-------------------------------------------------------------------------------
+00014  1000             ; INITIALIZE DIGI_PLAYER
+00015  1000             
+00016  1000  48                    PHA                     ; SAVE A AS WE USE IT
+00017  1001  8A                    TXA                     ; SAVE X TOO
+00018  1002  48                    PHA                     ;
+00019  1003             
+00020  1003  A9 00                 LDA #$00                ; WAS $7F IN THE_C64_DIGI.TXT
+00021  1005  8D 0D DC              STA $DC0D               ; ICR CIA #2
+00022  1008  8D 0D DD              STA $DD0D               ; READ ACKS ANY PENDING INTERRUPT
+00023  100B  AD 0D DC              LDA $DC0D
+00024  100E  AD 0D DD              LDA $DD0D
+00025  1011  78                    SEI                    ; DISABLES MASKABLE INTERRUPTS
+00026  1012             
+00027  1012  A9 35                 LDA #$35                ; SWITCH OUT KERNAL ROM WHILE SAMPLE PLAYING
+00028  1014  85 01                 STA $01                 ; 6510 BANKING REGISTER
+00029  1016             
+00030  1016                        ; INITIALIZE ALL SID REGISTERS
+00031  1016  A9 00                 LDA #$00                ; ZEROS OUT ALL SID REGISTERS
+00032  1018  A2 00                 LDX #$00                ;
+00033  101A             @SIDCLR    ;
+00034  101A  9D 00 D4              STA SID,X               ;
+00035  101D  E8                    INX                     ;
+00036  101E  D0 FA                 BNE @SIDCLR             ;
+00037  1020             
+00038  1020                        ; SID VOICES MODULATED TOO, INCREASES VOLUME ON 8580 SIDS
+00039  1020  A9 00                 LDA #$00                ;
+00040  1022  8D 05 D4              STA SID+$05             ; VOICE 1 ATTACH/DECAY
+00041  1025  8D 0C D4              STA SID+$0C             ; VOICE 2 ATTACH/DECAY
+00042  1028  8D 13 D4              STA SID+$13             ; VOICE 3 ATTACH/DECAY
+00043  102B  8D 15 D4              STA SID+$15             ; FILTER  LO
+00044  102E  A9 F0                 LDA #$F0                ;
+00045  1030  8D 06 D4              STA SID+$06             ; VOICE 1 SYSTAIN/RELEASE
+00046  1033  8D 0D D4              STA SID+$0D             ; VOICE 2 SYSTAIN/RELEASE
+00047  1036  8D 14 D4              STA SID+$14             ; VOICE 3 SYSTAIN/RELEASE
+00048  1039  A9 01                 LDA #$01                ;
+00049  103B  8D 04 D4              STA SID+$04             ; VOICE 1 CTRL
+00050  103E  8D 0B D4              STA SID+$0B             ; VOICE 2 CTRL
+00051  1041  8D 12 D4              STA SID+$12             ; VOICE 3 CTRL
+00052  1044  A9 10                 LDA #$10                ;
+00053  1046  8D 16 D4              STA SID+$16             ; FILTER  HI
+00054  1049  A9 F7                 LDA #$F7                ;
+00055  104B  8D 17 D4              STA SID+$17             ; FILTER  VOICES+RESO
+00056  104E             
+00057  104E                        ; SET UP THE VARIOUS ''POINTERS'
+00058  104E  A9 00                 LDA #<NMI_HANDLER0      ; POINT TO OUR FIRST NMI HANDLER
+00059  1050  8D FA FF              STA $FFFA               ; NMI HANDLER ADDRESS LOW BYTE
+00060  1053  A9 11                 LDA #>NMI_HANDLER0      ;
+00061  1055  8D FB FF              STA $FFFB               ; NMI HANDLER ADDRESS HI BYTE
+00062  1058             
+00063  1058  A9 00                 LDA #<DATASTART         ; SET UP SELF MODIFYING POINTER TO SAMPLE DATA
+00064  105A  8D 86 11              STA LOADNEW+1           ; TO CURRENT LOW BYTE
+00065  105D  A9 20                 LDA #>DATASTART         ; SET UP SELF MODIFYING POINTER TO SAMPLE DATA
+00066  105F  8D 87 11              STA LOADNEW+2           ; TO CURRENT HIGH BYTE
+00067  1062             
+00068  1062  A9 00                 LDA #<DATASTART         ; SET UP SELF MODIFYING POINTER TO SAMPLE DATA
+00069  1064  8D 55 11              STA PEEKNEXT+1          ; TO NEXT LOW BYTE
+00070  1067  EE 55 11              INC PEEKNEXT+1
+00071  106A  EE 55 11              INC PEEKNEXT+1
+00072  106D  A9 20                 LDA #>DATASTART         ; SET UP SELF MODIFYING POINTER TO SAMPLE DATA
+00073  106F  8D 56 11              STA PEEKNEXT+2          ; TO NEXT HIGH BYTE
+00074  1072                        
+00075  1072  AD 00 20              LDA DATASTART           ; GET FIRST SAMPLE BYTE, STORE TO
+00076  1075  85 19                 STA N0L                 ; LOW NIBBLE ZERO PAGE SPOT
+00077  1077  EE 86 11              INC LOADNEW+1           ; INCREMENT SELF-MOD POINTER LSB
+00078  107A             
+00079  107A                        ; SETUP CIA #2, DO LAST AS IT STARTS INTERRUPTS!
+00080  107A  A9 80                 LDA #<FREQ              ;
+00081  107C  8D 04 DD              STA $DD04               ; TA LO INTERRUPT FREQ
+00082  107F  A9 00                 LDA #>FREQ              ;
+00083  1081  8D 05 DD              STA $DD05               ; TA HI INTERRUPT FREQ
+00084  1084             
+00085  1084  A9 81                 LDA #$81                ; ICR SET TO TMR A UNDERFLOW
+00086  1086  8D 0D DD              STA $DD0D               ; ICR CIA #2
+00087  1089  A9 11                 LDA #$11                ;
+00088  108B  8D 0E DD              STA $DD0E               ; CRA INTERRUPT ENABLE
+00089  108E             
+00090  108E                        ; RESTORE STATE AND RETURN
+00091  108E  68                    PLA                     ; GET BACK OUR X
+00092  108F  AA                    TAX                     ;
+00093  1090  68                    PLA                     ; GET BACK OUT A AS WELL
+00094  1091  60                    RTS                     ; INIT DONE, RETURN FROM CALL
+00095  1092             
+00096  1092             
+00097  1092             *=         $1100
+00098  1100             
+00099  1100             ; WE HAVE FOUR DIFFERENT NMI HANDLERS, AFTER NMI_HANDLER0 IS DONE IT CHANGES
+00100  1100             ; THE NMI VECTOR IN HI RAM TO POINT TO NMI_HANDLER1, ETC. THIS LETS US CALL THE
+00101  1100             ; REQUIRED CODE FOR EACH STAGE OF INTERPOLATION WITHOUT NEEDING ANY COMPARISONS
+00102  1100             ; WHICH WOUDL TAKE MORE CLOCK CYCLES.
+00103  1100             ;
+00104  1100             ; WE ARE ALSO USING TWO DIFFERENT SELF-MODYFYING 'POINTERS'.
+00105  1100             ; LOADNEW+1, LOADNEW+2 IS THE 'POINTER' TO THE CURRENT SAMPLE BYTE CALLED, 'A'
+00106  1100             ; PEEKNEXT+1, PEEKNEXT+2 IS THE 'POINTER' TO PEEK AT THE NEXT SAMPLE BYTE, 'B'
+00107  1100             ; ALL SAMPLE DATA IS PAGE ALIGNED SO WE ONLY NEED TO CHECK FOR END OF DATA
+00108  1100             ; WHEN CROSSING A PAGE BOUNDRY AND WE ONOLY DO SO FOR "LOADNEW"
+00109  1100             
+00110  1100             
+00111  1100             ; WE PLAY CURRENT LOA NIBBLE, CALC MID POINT OF HIA-LOA SAVE TO N0L
+00112  1100             ; AND MOVE THE HIA WHICH WAS STILL IN N0L TO N0M
+00113  1100             ; TOTAL CYCLES: 22+29+7+9 = 67
+00114  1100             NMI_HANDLER0 
+00115  1100  48                    PHA                     ; 3- SAVE A AS WE ARE GOING TO USE IT
+00116  1101  A5 19                 LDA N0L                 ; 3- LOAD SAMPLE BYTE/NIBBLE
+00117  1103  09 10                 ORA #$10                ; 2- MAKE SURE WE DON'T KILL FILTER SETTINGS
+00118  1105  29 1F                 AND #$1F                ; 2- GIT RID OF ANY DANGLING HIGH BITS
+00119  1107  8D 18 D4              STA SID+$18             ; 4- SAVE TO SID VOLUME REGSITER
+00120  110A  8D 20 D0              STA $D020               ; 4- CHANGE BORDER COLOR, SOMETHING TO LOOK AT
+00121  110D  AD 0D DD              LDA $DD0D               ; 4- (22) CLEAR NMI
+00122  1110             
+00123  1110  A5 19                 LDA N0L                 ; 3- N0L STILL HAS DATA IN UPPER NIBBLE
+00124  1112  4A                    LSR                     ; 2- SHIFT TO LOWER NIBBLE POSITION
+00125  1113  4A                    LSR                     ; 2- DOING THIS HERE TO EVEN OUT
+00126  1114  4A                    LSR                     ; 2- CYCLES BETWEEN ISRS
+00127  1115  4A                    LSR                     ; 2-
+00128  1116  85 20                 STA N0M                 ; 3- SAVE HIA TO MID NIBBLE ADDRESS
+00129  1118  A5 19                 LDA N0L                 ; 3- GET ORIGIANL BYTE AGAIN
+00130  111A  29 0F                 AND #$0F                ; 2- SAVE ONLY LOWER NIBBLE
+00131  111C  18                    CLC                     ; 2- CLEAR CARRY BEFORE ADD
+00132  111D  65 20                 ADC N0M                 ; 3- ADD LOA TO HIA AND /2
+00133  111F  4A                    LSR                     ; 2- TO GET AN AVERAGE
+00134  1120  85 19                 STA N0L                 ; 3- (29) IS PLAYED ON NEXT ISR AS LO
+00135  1122             
+00136  1122  A9 29                 LDA #<NMI_HANDLER1      ; 3- SET NMI HANDLER ADDRESS LOW BYTE
+00137  1124  8D FA FF              STA $FFFA               ; 4- (7)
+00138  1127             
+00139  1127  68                    PLA                     ; 3- LOCAL EXIT CODE IS SMALLER AND
+00140  1128  40                    RTI                     ; 6- (9)
+00141  1129             
+00142  1129             
+00143  1129             ; WE PLAY CURRENT MID OF HIA+LOA (IN N0L), THEN MOVE MID(HIA) TO N0L POSITION
+00144  1129             ; TOTAL CYCLES 22+6+7+9 = 44
+00145  1129             NMI_HANDLER1 
+00146  1129  48                    PHA                     ; 3- SAVE A AS WE ARE GOING TO USE IT
+00147  112A  A5 19                 LDA N0L                 ; 3- LOAD SAMPLE BYTE
+00148  112C  09 10                 ORA #$10                ; 2- MAKE SURE WE DON'T KILL FILTER SETTINGS
+00149  112E  29 1F                 AND #$1F                ; 2- GIT RID OF ANY DANGLING HIGH BITS
+00150  1130  8D 18 D4              STA SID+$18             ; 4- SAVE TO SID VOLUME REGSITER
+00151  1133  8D 20 D0              STA $D020               ; 4- CHANGE BORDER COLOR, SOMETHING TO LOOK AT
+00152  1136  AD 0D DD              LDA $DD0D               ; 4- (22) CLEAR NMI
+00153  1139             
+00154  1139  A5 20                 LDA N0M                 ; 3- MOVE MID(HIA) TO N0L ADDRESS
+00155  113B  85 19                 STA N0L                 ; 3- (6)
+00156  113D             
+00157  113D  A9 44                 LDA #<NMI_HANDLER2      ; 3- SET NMI HANDLER ADDRESS LOW BYTE
+00158  113F  8D FA FF              STA $FFFA               ; 4- (7)
+00159  1142             
+00160  1142  68                    PLA                     ; 3- LOCAL EXIT CODE IS SMALLER AND
+00161  1143  40                    RTI                     ; 6- (9)
+00162  1144             
+00163  1144             
+00164  1144             ; WE PLAY HIA, CALC MID POINT OF LONEXT-HI SAVE TO LO, WE DO NOT NEED TO CHECK
+00165  1144             ; IF WE ARE AT THE END OF THE SAMPLE HERE, THAT IS DONE IN NMI_HANDLER3
+00166  1144             ; TOTAL CYCLES 22+7+7+7+9 = 52 OR 22+7+8+10+9 = 56
+00167  1144             NMI_HANDLER2 
+00168  1144  48                    PHA                     ; 3- SAVE A AS WE ARE GOING TO USE IT
+00169  1145  A5 19                 LDA N0L                 ; 3- LOAD SAMPLE BYTE
+00170  1147  09 10                 ORA #$10                ; 2- MAKE SURE WE DON'T KILL FILTER SETTINGS
+00171  1149  29 1F                 AND #$1F                ; 2- GIT RID OF ANY DANGLING HIGH BITS
+00172  114B  8D 18 D4              STA SID+$18             ; 4- SAVE TO SID VOLUME REGSITER
+00173  114E  8D 20 D0              STA $D020               ; 4- CHANGE BORDER COLOR, SOMETHING TO LOOK AT
+00174  1151  AD 0D DD              LDA $DD0D               ; 4- (22) CLEAR NMI
+00175  1154             
+00176  1154             PEEKNEXT   
+00177  1154  AD FF FF              LDA $FFFF               ; 3- PEEK NEXT SAMPLE BYTE VIA SELF MOD. POINTER
+00178  1157  29 0F                 AND #$0F                ; 2- KEEP ONLY THE LOW NIBBLE OF NEXT SAMPLE
+00179  1159  18                    CLC                     ; 2- CLEAR CARRY BEFORE ADDING NEXT LOW NIBBLE
+00180  115A  65 19                 ADC N0L                 ; 3- LOB TO PREVIUOS HI NIBBLE HIA
+00181  115C  4A                    LSR                     ; 2- /2 TO GET AN AVERAGE MIDPOINT VALUE
+00182  115D  85 19                 STA N0L                 ; 3- (7) SAVE IT TO PLAY NEXT AS N0L
+00183  115F             
+00184  115F  EE 55 11              INC PEEKNEXT+1          ; 5 - INCREMENT SELF-MOD POINTER LSB
+00185  1162  F0 07                 BEQ NEXTPEEKPAGE        ; 2-3 (7-8) DID WE CROSS A PAGE?
+00186  1164             
+00187  1164  A9 75                 LDA #<NMI_HANDLER3      ; 3- SET NMI HANDLER ADDRESS LOW BYTE
+00188  1166  8D FA FF              STA $FFFA               ; 4- (7)
+00189  1169                        
+00190  1169  68                    PLA                     ; 3- LOCAL EXIT CODE IS SMALLER AND
+00191  116A  40                    RTI                     ; 6- (9)
+00192  116B             
+00193  116B             NEXTPEEKPAGE 
+00194  116B  EE 56 11              INC PEEKNEXT+2          ; 3- INCREMENT SELF-MOD POINTER MSB
+00195  116E  A9 75                 LDA #<NMI_HANDLER3      ; 3- SET NMI HANDLER ADDRESS LOW BYTE
+00196  1170  8D FA FF              STA $FFFA               ; 4- (10)
+00197  1173             
+00198  1173  68                    PLA                     ; 3- LOCAL EXIT CODE IS SMALLER AND
+00199  1174  40                    RTI                     ; 6- (9)
+00200  1175             
+00201  1175             
+00202  1175             ; WE PLAY MIDPOINT OF HIA-LOB, LOAD NEXT BYTE, B, SAVE TO N0L
+00203  1175             ; TOTAL CYCLES 22+6+7+7+9 = 51 OR 22+6+8+12+7+9 = 64
+00204  1175             NMI_HANDLER3 
+00205  1175  48                    PHA                     ; 3- SAVE A AS WE ARE GOING TO USE IT
+00206  1176  A5 19                 LDA N0L                 ; 3- LOAD SAMPLE BYTE
+00207  1178  09 10                 ORA #$10                ; 2- MAKE SURE WE DON'T KILL FILTER SETTINGS
+00208  117A  29 1F                 AND #$1F                ; 2- GIT RID OF ANY DANGLING HIGH BITS
+00209  117C  8D 18 D4              STA SID+$18             ; 4- SAVE TO SID VOLUME REGSITER
+00210  117F  8D 20 D0              STA $D020               ; 4- CHANGE BORDER COLOR, SOMETHING TO LOOK AT
+00211  1182  AD 0D DD              LDA $DD0D               ; 4- (22) CLEAR NMI
+00212  1185             
+00213  1185             LOADNEW
+00214  1185  AD FF FF              LDA $FFFF               ; 3 -SELF-MOD POINTER TO SAMPLE
+00215  1188  85 19                 STA N0L                 ; 3-(6) SAVE BYTE TO LOW NIBBLE, M0L, ADDRESS
+00216  118A             
+00217  118A  EE 86 11              INC LOADNEW+1           ; 5 - INCREMENT SELF-MOD POINTER LSB
+00218  118D  F0 07                 BEQ @NEXTPAGE           ; 2-3 (7-8) DID WE CROSS A PAGE BOUNDRY?
+00219  118F             
+00220  118F  A9 00                 LDA #<NMI_HANDLER0      ; 3- SET NMI HANDLER ADDRESS LOW BYTE
+00221  1191  8D FA FF              STA $FFFA               ; 4- (7)
+00222  1194             
+00223  1194  68                    PLA                     ; 3- LOCAL EXIT CODE IS SMALLER AND
+00224  1195  40                    RTI                     ; 6- (9)
+00225  1196             
+00226  1196             @NEXTPAGE
+00227  1196                        ; THIS IS ONLY EXECUTED EVERY 512 SAMPLES
+00228  1196  AD 87 11              LDA LOADNEW+2           ; 3- INCREMENT SELF-MOD POINTER MSB
+00229  1199  69 01                 ADC #$01                ; 2- CARRY IS CLEAR FROM FLAG TEST
+00230  119B  C9 30                 CMP #>DATASTOP          ; 2- ARE WE DONE?
+00231  119D  F0 0A                 BEQ @STOP               ; 2-3- YES, THEN STOP
+00232  119F  8D 87 11              STA LOADNEW+2           ; 3-(12) NO, SAVE NEW MSB
+00233  11A2             
+00234  11A2  A9 00                 LDA #<NMI_HANDLER0      ; 3- SET NMI HANDLER ADDRESS LOW BYTE
+00235  11A4  8D FA FF              STA $FFFA               ; 4- (7)
+00236  11A7             
+00237  11A7  68                    PLA                     ; 3- LOCAL EXIT CODE IS SMALLER AND
+00238  11A8  40                    RTI                     ; 6- (9)
+00239  11A9             
+00240  11A9             
+00241  11A9             @STOP
+00242  11A9  A9 00                 LDA #$00                ; 2- TURN OFF NMI
+00243  11AB  8D 0E DD              STA $DD0E               ; 4- TIMER A STOP-CRA, CIA #1 DC0E
+00244  11AE  A9 4F                 LDA #$4F                ; 2- DISABLE ALL CIA-2 NMIS
+00245  11B0  8D 0D DD              STA $DD0D               ; 4- ICR - INTERRUPT CONTROL / STATUS
+00246  11B3  AD 0D DD              LDA $DD0D               ; 4- (16) STA/LDA TO ACK ANY PENDING INT
+00247  11B6             
+00248  11B6  A9 37                 LDA #$37                ; 2- RESET KERNAL BANKING
+00249  11B8  85 01                 STA $01                 ; 3- (5)
+00250  11BA                        
+00251  11BA  68                    PLA                     ; 3- LOCAL EXIT CODE IS SMALLER AND
+00252  11BB  58                    CLI
+00253  11BC  40                    RTI                     ; 6- FASTER THAN JUMPS/BRANCHES
+00254  11BD             
+00255  11BD             
+00256  11BD             
+00257  11BD             
+00258  11BD             
+00259  11BD             
+00260  11BD             
+00261  11BD             
+00262  11BD                        
+00263  11BD             
+00264  11BD             ;===============================================================================
+00265  11BD             ; $00-$FF  PAGE ZERO (256 BYTES)
+00266  11BD                        
+00267  11BD                        ; $00-$01   RESERVED FOR IO
+00268  11BD             ZEROPAGETEMP = $02
+00269  11BD             BASICFP2INTL = $03
+00270  11BD             BASICFP2INTH = $04
+00271  11BD             BASICINT2FPL = $05
+00272  11BD             BASICINT2FPH = $06
+00273  11BD                        ; $03-$8F   RESERVED FOR BASIC
+00274  11BD                        ; USING $73-$8A CHRGET AS BASIC
+00275  11BD             ;FREQ            = $80 ; CIA NMI TIMER DELAY
+00276  11BD                        ; $90-$FA   RESERVED FOR KERNAL
+00277  11BD             NOTUSED0   = $92 ; WAS USED FOR TAPE LOADING
+00278  11BD             NOTUSED1   = $93 ; WAS USED FOR TAPE LOADING/VERIFY
+00279  11BD             NOTUSED2   = $96 ; WAS USED FOR TAPE LOADING
+00280  11BD             TEMPFORX   = $97 ; TEMP STORAGE FOR X REGISTER (KERNAL)
+00281  11BD             OUTBUFTAIL = $9B ; WAS USED FOR TAPE LOADING
+00282  11BD             NOTUSED2X  = $9C ; WAS USED FOR TAPE LOADING
+00283  11BD             XINDEX     = $9E ; WAS USED FOR TAPE LOADING
+00284  11BD             YINDEX     = $9F ; WAS USED FOR TAPE LOADING
+00285  11BD             DAL        = $A5 ; WAS USED FOR TAPE LOADING
+00286  11BD             DAM        = $A6 ; WAS USED FOR TAPE LOADING
+00287  11BD             DBL        = $A7 ; WAS USED FOR TAPE/RS232
+00288  11BD             DBM        = $A8 ; WAS USED FOR TAPE/RS232
+00289  11BD             FRL        = $A9 ; WAS USED FOR TAPE/RS232
+00290  11BD             FRM        = $AA ; WAS USED FOR TAPE/RS232
+00291  11BD             ZPA        = $AB ; WAS USED FOR TAPE/RS232
+00292  11BD             ZPX        = $AC ; WAS USED FOR TAPE/RS232
+00293  11BD             ZPY        = $AD ; WAS USED FOR TAPE/RS232
+00294  11BD             NOTUSED3   = $AE ; WAS USED FOR TAPE/RS232
+00295  11BD             NOTUSED4   = $AF ; WAS USED FOR TAPE/RS232
+00296  11BD             NOTUSED5   = $B0 ; WAS USED FOR TAPE LOADING
+00297  11BD             NOTUSED6   = $B1 ; WAS USED FOR TAPE LOADING
+00298  11BD             NOTUSED7   = $B2 ; WAS USED FOR TAPE LOADING
+00299  11BD             NOTUSED8   = $B3 ; WAS USED FOR TAPE LOADING
+00300  11BD             NOTUSED9   = $B4 ; WAS USED FOR TAPE LOADING
+00301  11BD             NOTUSED10  = $B5 ; WAS USED FOR TAPE LOADING
+00302  11BD             NOTUSED11  = $BD ; WAS USED FOR TAPE LOADING
+00303  11BD             OUTBYTE    = $BE ; WAS USED FOR TAPE LOADING
+00304  11BD             NOTUSED12  = $BF ; TEMP USING FOR BUF SAVE CNT
+00305  11BD             NOTUSED13  = $C0 ; TEMP USING FOR BUF SAVE CNT
+00306  11BD             
+00307  11BD             NOTUSED14  = $F7 ; WAS USED FOR TAPE/RS232
+00308  11BD             NOTUSED15  = $F8 ; WAS USED FOR TAPE/RS232
+00309  11BD             NOTUSED16  = $F9 ; WAS USED FOR TAPE/RS232
+00310  11BD             NOTUSED17  = $FA ; WAS USED FOR TAPE/RS232
+00311  11BD             FLAG       = $FB ; LSB OF CURRENT CCODEBUF LOCATION
+00312  11BD             SAMPLE     = $FC ; MSB OF CURRENT CCODEBUF LOCATION
+00313  11BD             PTR        = $FD ; POINTER TO CURRENT BYTE OF SAMPLE
+00314  11BD             ZEROPAGEHIGH2 = $FE
+00315  11BD                        ; $FF       RESERVED FOR KERNAL
+00316  11BD             
+00317  11BD             ;===============================================================================
+00318  11BD             ; $0100-$01FF  STACK (256 BYTES)
+00319  11BD             
+00320  11BD             
+00321  11BD             ;===============================================================================
+00322  11BD             ; $0200-$7FFF  RAM (32K)
+00323  11BD             
+00324  11BD             SCREENRAM  = $0400
+00325  11BD             
+00326  11BD             ; $0801
+00327  11BD             ; PROGRAM CODE IS PLACED HERE BY USING THE *=$0801 DIRECTIVE
+00328  11BD             ; IN MAIN.ASM
+00329  11BD             
+00330  11BD             ;===============================================================================
+00331  11BD             ; $8000-$9FFF  RAM (8K)
+00332  11BD             ;CCODEBUFFER     = $8000
+00333  11BD             
+00334  11BD             ;===============================================================================
+00335  11BD             ; $A000-$BFFF  BASIC ROM (8K)
+00336  11BD             
+00337  11BD             
+00338  11BD             ;===============================================================================
+00339  11BD             ; $C000-$CFFF  RAM (4K)
+00340  11BD             OUTPUTBUFFER = $C000
+00341  11BD             CCODEBUFFER = $C200
+00342  11BD             ;===============================================================================
+00343  11BD             ; $D000-$DFFF  IO (4K)
+00344  11BD             
+00345  11BD             ; THESE ARE SOME OF THE C64 REGISTERS THAT ARE MAPPED INTO
+00346  11BD             ; IO MEMORY SPACE
+00347  11BD             ; NAMES TAKEN FROM 'MAPPING THE COMMODORE 64' BOOK
+00348  11BD             
+00349  11BD             SP0X       = $D000
+00350  11BD             SP0Y       = $D001
+00351  11BD             MSIGX      = $D010
+00352  11BD             RASTER     = $D012
+00353  11BD             SPENA      = $D015
+00354  11BD             SCROLX     = $D016
+00355  11BD             VMCSB      = $D018
+00356  11BD             SPBGPR     = $D01B
+00357  11BD             SPMC       = $D01C
+00358  11BD             SPSPCL     = $D01E
+00359  11BD             EXTCOL     = $D020
+00360  11BD             BGCOL0     = $D021
+00361  11BD             BGCOL1     = $D022
+00362  11BD             BGCOL2     = $D023
+00363  11BD             BGCOL3     = $D024
+00364  11BD             SPMC0      = $D025
+00365  11BD             SPMC1      = $D026
+00366  11BD             SP0COL     = $D027
+00367  11BD             SID        = $D400 ; SID BASE ADDRESS
+00368  11BD             FRELO1     = $D400 ;(54272)
+00369  11BD             FREHI1     = $D401 ;(54273)
+00370  11BD             PWLO1      = $D402 ;(54274)
+00371  11BD             PWHI1      = $D403 ;(54275)
+00372  11BD             VCREG1     = $D404 ;(54276)
+00373  11BD             ATDCY1     = $D405 ;(54277)
+00374  11BD             SUREL1     = $D406 ;(54278)
+00375  11BD             FRELO2     = $D407 ;(54279)
+00376  11BD             FREHI2     = $D408 ;(54280)
+00377  11BD             PWLO2      = $D409 ;(54281)
+00378  11BD             PWHI2      = $D40A ;(54282)
+00379  11BD             VCREG2     = $D40B ;(54283)
+00380  11BD             ATDCY2     = $D40C ;(54284)
+00381  11BD             SUREL2     = $D40D ;(54285)
+00382  11BD             FRELO3     = $D40E ;(54286)
+00383  11BD             FREHI3     = $D40F ;(54287)
+00384  11BD             PWLO3      = $D410 ;(54288)
+00385  11BD             PWHI3      = $D411 ;(54289)
+00386  11BD             VCREG3     = $D412 ;(54290)
+00387  11BD             ATDCY3     = $D413 ;(54291)
+00388  11BD             SUREL3     = $D414 ;(54292)
+00389  11BD             SIGVOL     = $D418 ;(54296)
+00390  11BD             COLORRAM   = $D800
+00391  11BD             CIAPRA     = $DC00
+00392  11BD             CIAPRB     = $DC01
+00393  11BD             
+00394  11BD             ;===============================================================================
+00395  11BD             ; $E000-$FFFF  KERNAL ROM (8K)
+00396  11BD             
+00397  11BD             
+00398  11BD             ;===============================================================================
+00399  11BD             
+00400  11BD             *=$2000    
+00401  2000             
+00402  2000             ;SAMPLE
+00403  2000             
+00404  2000             
+00405  2000             DATASTART
+00406  2000  88 88 88              BYTE $88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88
+00407  2010  88 88 88              BYTE $88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88
+00408  2020  88 88 88              BYTE $88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88
+00409  2030  88 88 88              BYTE $88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88
+00410  2040  88 88 88              BYTE $88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88
+00411  2050  88 88 88              BYTE $88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88
+00412  2060  88 88 88              BYTE $88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88
+00413  2070  88 88 88              BYTE $88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88
+00414  2080  88 88 88              BYTE $88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88
+00415  2090  88 88 88              BYTE $88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$77,$78,$88,$88
+00416  20A0  78 88 88              BYTE $78,$88,$88,$88,$88,$88,$77,$69,$98,$88,$88,$77,$87,$97,$86,$78
+00417  20B0  69 88 97              BYTE $69,$88,$97,$87,$78,$78,$88,$77,$78,$78,$88,$87,$88,$78,$88,$87
+00418  20C0  78 78 88              BYTE $78,$78,$88,$87,$87,$88,$88,$88,$88,$78,$77,$87,$88,$88,$88,$88
+00419  20D0  88 88 88              BYTE $88,$88,$88,$77,$76,$87,$99,$9A,$89,$77,$66,$77,$88,$88,$88,$88
+00420  20E0  79 67 76              BYTE $79,$67,$76,$87,$A9,$9A,$78,$67,$76,$88,$88,$88,$78,$98,$78,$56
+00421  20F0  66 98 BA              BYTE $66,$98,$BA,$99,$68,$66,$76,$98,$88,$87,$88,$99,$79,$56,$56,$A8
+00422  2100  B9 8A 68              BYTE $B9,$8A,$68,$76,$87,$88,$78,$77,$87,$88,$98,$67,$56,$76,$A9,$9B
+00423  2110  88 76 77              BYTE $88,$76,$77,$77,$77,$77,$88,$98,$88,$77,$78,$77,$77,$87,$98,$89
+00424  2120  89 78 66              BYTE $89,$78,$66,$76,$88,$88,$88,$88,$77,$77,$87,$87,$88,$88,$88,$78
+00425  2130  88 88 78              BYTE $88,$88,$78,$77,$88,$88,$78,$77,$77,$88,$88,$88,$88,$88,$78,$77
+00426  2140  78 87 88              BYTE $78,$87,$88,$88,$78,$77,$78,$88,$77,$87,$98,$88,$78,$77,$77,$88
+00427  2150  89 88 67              BYTE $89,$88,$67,$88,$88,$78,$77,$76,$88,$98,$78,$78,$88,$88,$88,$77
+00428  2160  78 88 88              BYTE $78,$88,$88,$88,$87,$78,$88,$88,$78,$76,$87,$99,$88,$78,$77,$87
+00429  2170  99 78 67              BYTE $99,$78,$67,$77,$98,$88,$77,$77,$87,$88,$78,$78,$77,$88,$88,$88
+00430  2180  77 88 88              BYTE $77,$88,$88,$78,$88,$88,$78,$87,$98,$89,$67,$86,$A9,$89,$67,$76
+00431  2190  88 88 88              BYTE $88,$88,$88,$77,$88,$88,$88,$78,$87,$88,$88,$88,$88,$77,$77,$88
+00432  21A0  88 77 87              BYTE $88,$77,$87,$87,$88,$88,$88,$88,$88,$88,$77,$77,$88,$88,$87,$77
+00433  21B0  87 78 78              BYTE $87,$78,$78,$88,$87,$87,$88,$88,$78,$77,$87,$88,$88,$78,$87,$78
+00434  21C0  78 87 88              BYTE $78,$87,$88,$78,$88,$88,$78,$87,$87,$88,$78,$87,$88,$88,$77,$87
+00435  21D0  87 78 88              BYTE $87,$78,$88,$77,$88,$88,$88,$77,$88,$88,$77,$87,$88,$78,$77,$88
+00436  21E0  88 88 78              BYTE $88,$88,$78,$88,$87,$78,$88,$87,$77,$88,$87,$78,$88,$87,$88,$88
+00437  21F0  77 77 88              BYTE $77,$77,$88,$88,$78,$88,$77,$78,$88,$87,$78,$77,$87,$88,$88,$78
+00438  2200  87 88 88              BYTE $87,$88,$88,$78,$77,$87,$87,$88,$88,$88,$78,$88,$87,$88,$88,$78
+00439  2210  87 88 78              BYTE $87,$88,$78,$87,$78,$78,$87,$78,$88,$87,$88,$88,$78,$87,$88,$88
+00440  2220  87 88 88              BYTE $87,$88,$88,$88,$77,$88,$88,$77,$88,$78,$87,$88,$88,$88,$88,$88
+00441  2230  88 78 77              BYTE $88,$78,$77,$88,$88,$88,$88,$88,$78,$78,$87,$88,$88,$88,$88,$87
+00442  2240  88 88 88              BYTE $88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88
+00443  2250  88 88 88              BYTE $88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88
+00444  2260  88 88 88              BYTE $88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88
+00445  2270  88 88 88              BYTE $88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88
+00446  2280  88 88 88              BYTE $88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88
+00447  2290  88 88 88              BYTE $88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88
+00448  22A0  88 88 88              BYTE $88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$78,$78,$88,$78,$78,$88
+00449  22B0  77 88 88              BYTE $77,$88,$88,$88,$87,$87,$87,$87,$78,$78,$88,$88,$78,$78,$88,$78
+00450  22C0  78 88 87              BYTE $78,$88,$87,$78,$69,$88,$77,$88,$87,$88,$79,$88,$78,$97,$96,$A7
+00451  22D0  95 87 87              BYTE $95,$87,$87,$88,$86,$87,$88,$87,$87,$87,$87,$87,$78,$78,$78,$78
+00452  22E0  88 87 87              BYTE $88,$87,$87,$87,$87,$87,$77,$78,$88,$87,$88,$88,$87,$87,$88,$88
+00453  22F0  88 78 88              BYTE $88,$78,$88,$88,$88,$87,$87,$87,$77,$78,$88,$89,$88,$88,$76,$67
+00454  2300  78 98 98              BYTE $78,$98,$98,$89,$88,$88,$75,$46,$87,$89,$97,$78,$89,$A9,$58,$67
+00455  2310  64 99 88              BYTE $64,$99,$88,$89,$97,$98,$6A,$85,$35,$97,$89,$A8,$77,$89,$AA,$65
+00456  2320  48 84 9A              BYTE $48,$84,$9A,$97,$69,$98,$B9,$48,$67,$53,$A9,$79,$89,$86,$A9,$7B
+00457  2330  74 35 A6              BYTE $74,$35,$A6,$8A,$97,$68,$99,$BB,$45,$47,$83,$AB,$67,$79,$97,$CA
+00458  2340  4A 75 43              BYTE $4A,$75,$43,$C9,$7A,$87,$76,$A9,$9D,$52,$37,$A5,$AC,$75,$68,$A7
+00459  2350  DB 28 66              BYTE $DB,$28,$66,$53,$DB,$59,$86,$86,$CA,$7D,$62,$36,$C6,$9D,$64,$77
+00460  2360  A8 DC 17              BYTE $A8,$DC,$17,$75,$64,$EC,$49,$75,$87,$BA,$8D,$41,$47,$C5,$9F,$43
+00461  2370  87 A9 DB              BYTE $87,$A9,$DB,$08,$74,$55,$FB,$39,$73,$98,$BB,$AC,$31,$67,$95,$AF
+00462  2380  34 96 A9              BYTE $34,$96,$A9,$CA,$2B,$61,$57,$F8,$5C,$52,$98,$AB,$CB,$15,$74,$65
+00463  2390  DD 27 84              BYTE $DD,$27,$84,$A9,$AA,$8C,$21,$77,$B5,$9E,$33,$97,$AA,$BA,$4B,$51
+00464  23A0  67 E8 5C              BYTE $67,$E8,$5C,$52,$A9,$AB,$BA,$18,$73,$67,$EC,$27,$84,$BA,$9A,$BA
+00465  23B0  14 85 86              BYTE $14,$85,$86,$BE,$23,$96,$BB,$89,$8B,$21,$87,$B6,$7E,$52,$A8,$AB
+00466  23C0  98 5B 40              BYTE $98,$5B,$40,$69,$D7,$3B,$73,$A9,$9C,$A6,$3B,$71,$49,$E9,$28,$85
+00467  23D0  B9 8B C7              BYTE $B9,$8B,$C7,$09,$93,$56,$DC,$35,$87,$C9,$5A,$E8,$05,$95,$74,$BF
+00468  23E0  53 77 CA              BYTE $53,$77,$CA,$57,$DB,$12,$77,$A3,$8F,$73,$76,$BC,$76,$BD,$21,$48
+00469  23F0  D4 6F 75              BYTE $D4,$6F,$75,$75,$AD,$86,$9D,$32,$36,$D6,$7D,$66,$85,$AC,$97,$AB
+00470  2400  23 44 D7              BYTE $23,$44,$D7,$8D,$56,$74,$AC,$88,$B9,$15,$54,$B7,$AD,$56,$64,$BC
+00471  2410  88 B7 17              BYTE $88,$B7,$17,$63,$95,$CE,$67,$54,$CA,$89,$87,$3B,$62,$64,$DD,$78
+00472  2420  55 B8 9A              BYTE $55,$B8,$9A,$67,$8B,$43,$34,$DB,$AA,$56,$87,$BA,$78,$C7,$27,$44
+00473  2430  B7 BB 49              BYTE $B7,$BB,$49,$56,$C7,$89,$87,$4C,$63,$84,$AB,$8D,$74,$95,$7B,$89
+00474  2440  C7 53 26              BYTE $C7,$53,$26,$99,$EC,$66,$37,$99,$A8,$86,$4C,$37,$82,$D7,$7C,$57
+00475  2450  85 98 78              BYTE $85,$98,$78,$D9,$67,$23,$87,$DD,$79,$64,$86,$89,$88,$8C,$46,$62
+00476  2460  C7 AD 57              BYTE $C7,$AD,$57,$47,$88,$A8,$A8,$6B,$25,$75,$CA,$9A,$76,$65,$87,$9A
+00477  2470  A9 4A 35              BYTE $A9,$4A,$35,$87,$A9,$8A,$87,$75,$97,$99,$8A,$59,$55,$66,$89,$8B
+00478  2480  89 65 86              BYTE $89,$65,$86,$89,$99,$6A,$47,$65,$97,$9B,$79,$66,$86,$88,$89,$89
+00479  2490  56 55 86              BYTE $56,$55,$86,$A9,$98,$79,$67,$88,$88,$78,$69,$68,$66,$76,$AA,$9B
+00480  24A0  77 86 78              BYTE $77,$86,$78,$78,$88,$79,$58,$66,$87,$9A,$99,$88,$77,$77,$88,$88
+00481  24B0  A7 86 55              BYTE $A7,$86,$55,$66,$A8,$AA,$79,$68,$87,$98,$88,$78,$86,$75,$67,$88
+00482  24C0  98 88 79              BYTE $98,$88,$79,$88,$88,$87,$78,$66,$76,$89,$88,$86,$76,$A9,$99,$78
+00483  24D0  77 76 87              BYTE $77,$76,$87,$89,$78,$76,$87,$98,$88,$88,$78,$77,$88,$88,$88,$77
+00484  24E0  77 87 88              BYTE $77,$87,$88,$77,$87,$88,$88,$88,$78,$77,$87,$88,$88,$88,$78,$77
+00485  24F0  78 87 77              BYTE $78,$87,$77,$77,$87,$88,$88,$88,$87,$87,$78,$87,$87,$88,$78,$78
+00486  2500  87 88 88              BYTE $87,$88,$88,$78,$87,$77,$88,$88,$87,$77,$78,$87,$88,$88,$78,$87
+00487  2510  77 88 88              BYTE $77,$88,$88,$77,$77,$88,$88,$88,$78,$88,$78,$88,$78,$78,$87,$87
+00488  2520  78 88 88              BYTE $78,$88,$88,$88,$77,$78,$78,$88,$88,$78,$87,$78,$78,$88,$88,$77
+00489  2530  88 77 88              BYTE $88,$77,$88,$88,$88,$88,$88,$88,$78,$77,$77,$88,$88,$78,$87,$87
+00490  2540  88 78 88              BYTE $88,$78,$88,$77,$77,$87,$88,$88,$87,$78,$78,$87,$88,$87,$88,$88
+00491  2550  78 88 88              BYTE $78,$88,$88,$78,$87,$87,$88,$88,$88,$78,$77,$77,$78,$88,$88,$88
+00492  2560  87 87 78              BYTE $87,$87,$78,$78,$88,$88,$88,$78,$77,$77,$87,$88,$98,$86,$67,$77
+00493  2570  88 99 99              BYTE $88,$99,$99,$87,$77,$77,$77,$77,$A7,$87,$57,$67,$97,$AA,$99,$78
+00494  2580  67 77 87              BYTE $67,$77,$87,$77,$77,$6A,$79,$84,$76,$B9,$AA,$89,$77,$66,$77,$88
+00495  2590  77 B7 88              BYTE $77,$B7,$88,$46,$66,$A8,$AB,$8B,$67,$66,$77,$88,$77,$87,$AA,$59
+00496  25A0  46 75 A9              BYTE $46,$75,$A9,$AB,$89,$66,$76,$87,$78,$67,$87,$CA,$68,$35,$75,$B9
+00497  25B0  9C 89 67              BYTE $9C,$89,$67,$76,$88,$78,$67,$87,$A9,$7C,$55,$53,$98,$CC,$89,$78
+00498  25C0  86 77 88              BYTE $86,$77,$88,$76,$76,$98,$CA,$77,$33,$85,$D9,$9B,$77,$86,$77,$78
+00499  25D0  77 76 87              BYTE $77,$76,$87,$B8,$C9,$66,$43,$A5,$CA,$89,$86,$97,$78,$77,$76,$77
+00500  25E0  87 A8 AA              BYTE $87,$A8,$AA,$56,$53,$A5,$BA,$89,$86,$98,$68,$75,$77,$77,$87,$A8
+00501  25F0  BA 65 43              BYTE $BA,$65,$43,$A7,$BA,$69,$77,$A9,$69,$56,$77,$77,$88,$A8,$AA,$68
+00502  2600  44 67 AB              BYTE $44,$67,$AB,$89,$77,$B9,$99,$45,$76,$87,$78,$78,$AA,$9B,$46,$63
+00503  2610  A6 8B 68              BYTE $A6,$8B,$68,$98,$AB,$67,$64,$78,$77,$77,$A9,$AA,$5B,$34,$85,$B9
+00504  2620  78 76 AB              BYTE $78,$76,$AB,$9B,$45,$75,$78,$66,$87,$BA,$9A,$39,$44,$87,$A9,$77
+00505  2630  99 BC 89              BYTE $99,$BC,$89,$43,$66,$68,$87,$A8,$AA,$8A,$49,$53,$85,$AA,$89,$A8
+00506  2640  BA 58 25              BYTE $BA,$58,$25,$85,$87,$78,$89,$A9,$89,$79,$43,$75,$AA,$9A,$87,$9A
+00507  2650  78 65 65              BYTE $78,$65,$65,$88,$87,$98,$99,$88,$88,$48,$74,$98,$9A,$88,$97,$9A
+00508  2660  68 66 76              BYTE $68,$66,$76,$88,$88,$88,$88,$88,$99,$58,$74,$88,$A9,$78,$98,$98
+00509  2670  68 76 67              BYTE $68,$76,$67,$77,$87,$88,$77,$88,$99,$8A,$55,$67,$97,$89,$88,$99
+00510  2680  99 78 77              BYTE $99,$78,$77,$55,$76,$88,$88,$98,$99,$89,$68,$76,$67,$76,$98,$A9
+00511  2690  89 88 78              BYTE $89,$88,$78,$66,$66,$66,$87,$99,$99,$89,$88,$78,$76,$56,$86,$88
+00512  26A0  A9 9A 88              BYTE $A9,$9A,$88,$77,$77,$77,$66,$77,$98,$99,$89,$88,$79,$77,$56,$75
+00513  26B0  88 99 89              BYTE $88,$99,$89,$99,$88,$77,$66,$66,$77,$88,$99,$99,$89,$88,$67,$66
+00514  26C0  65 87 88              BYTE $65,$87,$88,$AA,$99,$89,$78,$67,$65,$66,$87,$98,$99,$99,$88,$78
+00515  26D0  66 66 65              BYTE $66,$66,$65,$88,$A9,$AA,$99,$78,$77,$66,$66,$76,$88,$99,$99,$99
+00516  26E0  88 68 66              BYTE $88,$68,$66,$67,$76,$98,$A9,$9A,$89,$78,$66,$66,$66,$77,$98,$99
+00517  26F0  9A 89 78              BYTE $9A,$89,$78,$67,$66,$67,$76,$98,$A9,$9A,$88,$78,$66,$66,$76,$77
+00518  2700  98 99 99              BYTE $98,$99,$99,$88,$78,$67,$66,$67,$76,$98,$A9,$9A,$88,$78,$67,$66
+00519  2710  66 77 98              BYTE $66,$77,$98,$99,$99,$89,$78,$76,$66,$77,$77,$98,$99,$9A,$88,$78
+00520  2720  67 66 66              BYTE $67,$66,$66,$87,$88,$99,$99,$89,$77,$77,$67,$77,$77,$88,$98,$99
+00521  2730  89 88 67              BYTE $89,$88,$67,$66,$66,$87,$87,$99,$99,$89,$77,$77,$77,$76,$77,$87
+00522  2740  99 99 89              BYTE $99,$99,$89,$88,$77,$66,$66,$76,$88,$98,$99,$99,$78,$77,$77,$77
+00523  2750  87 78 88              BYTE $87,$78,$88,$89,$99,$89,$88,$77,$76,$77,$87,$88,$99,$99,$89,$77
+00524  2760  77 77 77              BYTE $77,$77,$77,$87,$78,$88,$88,$98,$88,$77,$77,$77,$77,$88,$88,$89
+00525  2770  88 88 77              BYTE $88,$88,$77,$77,$77,$77,$88,$78,$88,$88,$88,$88,$77,$77,$77,$77
+00526  2780  78 88 88              BYTE $78,$88,$88,$88,$88,$77,$77,$87,$77,$88,$77,$88,$88,$89,$88,$78
+00527  2790  77 77 77              BYTE $77,$77,$77,$77,$88,$88,$88,$88,$77,$77,$78,$77,$78,$87,$88,$88
+00528  27A0  88 88 78              BYTE $88,$88,$78,$77,$77,$77,$87,$88,$88,$88,$88,$77,$77,$78,$77,$78
+00529  27B0  87 88 88              BYTE $87,$88,$88,$88,$88,$78,$77,$77,$77,$87,$88,$98,$88,$88,$77,$77
+00530  27C0  77 77 77              BYTE $77,$77,$77,$87,$88,$98,$89,$88,$77,$67,$76,$77,$98,$89,$88,$88
+00531  27D0  88 78 88              BYTE $88,$78,$88,$56,$86,$99,$99,$67,$97,$89,$66,$77,$77,$88,$88,$89
+00532  27E0  87 88 77              BYTE $87,$88,$77,$77,$88,$89,$55,$B8,$8A,$88,$76,$A9,$57,$86,$88,$66
+00533  27F0  98 89 88              BYTE $98,$89,$88,$87,$88,$77,$88,$88,$58,$84,$9B,$87,$79,$96,$6A,$75
+00534  2800  78 87 77              BYTE $78,$87,$77,$99,$78,$88,$87,$78,$77,$88,$98,$47,$A7,$7A,$88,$67
+00535  2810  A9 67 88              BYTE $A9,$67,$88,$87,$68,$A7,$78,$98,$76,$89,$77,$77,$98,$79,$65,$AA
+00536  2820  77 78 96              BYTE $77,$78,$96,$79,$87,$77,$89,$75,$8A,$97,$68,$88,$77,$78,$97,$88
+00537  2830  47 A7 79              BYTE $47,$A7,$79,$88,$86,$89,$87,$77,$88,$67,$97,$88,$88,$88,$88,$77
+00538  2840  87 88 57              BYTE $87,$88,$57,$96,$8A,$88,$87,$88,$78,$77,$88,$78,$76,$89,$88,$87
+00539  2850  88 78 87              BYTE $88,$78,$87,$78,$6A,$84,$99,$89,$87,$88,$79,$76,$87,$79,$67,$A7
+00540  2860  89 77 88              BYTE $89,$77,$88,$78,$77,$88,$B7,$45,$88,$9A,$77,$77,$99,$77,$76,$88
+00541  2870  79 85 A9              BYTE $79,$85,$A9,$79,$77,$88,$78,$87,$87,$B8,$55,$68,$9B,$88,$75,$99
+00542  2880  79 75 98              BYTE $79,$75,$98,$69,$76,$A8,$88,$77,$88,$89,$77,$97,$A8,$57,$76,$AA
+00543  2890  88 65 98              BYTE $88,$65,$98,$7A,$66,$97,$89,$56,$97,$9A,$67,$86,$99,$67,$87,$89
+00544  28A0  4A 66 B8              BYTE $4A,$66,$B8,$A8,$66,$87,$8A,$67,$86,$98,$58,$77,$99,$88,$86,$88
+00545  28B0  78 78 88              BYTE $78,$78,$88,$A8,$75,$85,$9A,$6A,$67,$98,$88,$77,$77,$88,$87,$86
+00546  28C0  88 79 78              BYTE $88,$79,$78,$88,$88,$87,$97,$59,$47,$89,$A9,$77,$76,$88,$89,$77
+00547  28D0  87 78 78              BYTE $87,$78,$78,$88,$88,$87,$88,$78,$77,$88,$6B,$57,$96,$A9,$79,$67
+00548  28E0  87 88 78              BYTE $87,$88,$78,$87,$76,$87,$99,$79,$77,$87,$88,$78,$77,$89,$86,$76
+00549  28F0  99 99 77              BYTE $99,$99,$77,$77,$88,$78,$88,$77,$77,$98,$89,$78,$77,$87,$88,$87
+00550  2900  78 76 77              BYTE $78,$76,$77,$A8,$89,$78,$76,$88,$87,$78,$77,$77,$88,$98,$78,$77
+00551  2910  77 88 88              BYTE $77,$88,$88,$88,$77,$87,$88,$99,$88,$87,$77,$77,$88,$88,$88,$87
+00552  2920  88 88 88              BYTE $88,$88,$88,$87,$77,$88,$88,$88,$78,$87,$88,$87,$88,$88,$78,$77
+00553  2930  77 87 88              BYTE $77,$87,$88,$88,$88,$88,$88,$88,$78,$87,$88,$88,$88,$77,$87,$88
+00554  2940  88 88 88              BYTE $88,$88,$88,$77,$77,$77,$78,$87,$88,$88,$88,$88,$77,$87,$88,$87
+00555  2950  88 77 87              BYTE $88,$77,$87,$88,$88,$88,$78,$77,$77,$77,$88,$87,$88,$88,$88,$77
+00556  2960  77 88 88              BYTE $77,$88,$88,$88,$77,$77,$88,$88,$88,$78,$77,$77,$87,$88,$88,$88
+00557  2970  88 88 78              BYTE $88,$88,$78,$77,$77,$88,$88,$77,$76,$88,$99,$89,$78,$77,$77,$88
+00558  2980  89 77 87              BYTE $89,$77,$87,$88,$88,$78,$77,$77,$88,$99,$67,$76,$98,$99,$89,$77
+00559  2990  77 77 98              BYTE $77,$77,$98,$78,$76,$88,$88,$89,$77,$77,$87,$98,$69,$65,$87,$A9
+00560  29A0  9A 67 76              BYTE $9A,$67,$76,$76,$98,$89,$67,$86,$99,$99,$68,$76,$78,$88,$99,$55
+00561  29B0  76 98 BB              BYTE $76,$98,$BB,$68,$76,$76,$98,$79,$78,$65,$A9,$89,$79,$66,$88,$88
+00562  29C0  98 69 65              BYTE $98,$69,$65,$88,$B9,$7B,$65,$77,$97,$89,$77,$56,$A7,$8A,$98,$57
+00563  29D0  87 78 88              BYTE $87,$78,$88,$88,$56,$86,$99,$AB,$57,$76,$87,$99,$78,$67,$86,$9A
+00564  29E0  88 68 86              BYTE $88,$68,$86,$88,$88,$87,$69,$75,$99,$B9,$7A,$65,$77,$98,$79,$66
+00565  29F0  77 A9 79              BYTE $77,$A9,$79,$77,$77,$98,$88,$78,$87,$67,$97,$88,$A9,$67,$76,$87
+00566  2A00  89 67 87              BYTE $89,$67,$87,$88,$99,$77,$77,$87,$88,$88,$87,$68,$86,$88,$A9,$69
+00567  2A10  76 77 98              BYTE $76,$77,$98,$68,$87,$88,$99,$78,$77,$77,$88,$88,$88,$78,$76,$88
+00568  2A20  A8 8A 76              BYTE $A8,$8A,$76,$77,$97,$89,$67,$77,$99,$89,$77,$76,$88,$88,$88,$88
+00569  2A30  57 87 88              BYTE $57,$87,$88,$A9,$68,$76,$77,$98,$78,$77,$76,$AA,$88,$78,$76,$88
+00570  2A40  88 88 88              BYTE $88,$88,$88,$57,$86,$89,$A9,$58,$76,$77,$98,$78,$77,$65,$A9,$88
+00571  2A50  78 65 88              BYTE $78,$65,$88,$87,$89,$87,$58,$85,$99,$A9,$69,$75,$78,$98,$79,$77
+00572  2A60  57 A7 8A              BYTE $57,$A7,$8A,$88,$56,$97,$88,$98,$78,$77,$66,$98,$99,$88,$66,$87
+00573  2A70  88 88 78              BYTE $88,$88,$78,$77,$77,$98,$89,$88,$77,$87,$88,$88,$88,$88,$77,$88
+00574  2A80  88 99 78              BYTE $88,$99,$78,$77,$77,$87,$88,$88,$77,$77,$98,$88,$78,$77,$87,$88
+00575  2A90  88 88 88              BYTE $88,$88,$88,$77,$87,$88,$88,$88,$88,$77,$77,$87,$88,$88,$88,$78
+00576  2AA0  87 88 88              BYTE $87,$88,$88,$88,$77,$77,$88,$88,$88,$78,$87,$88,$88,$88,$88,$88
+00577  2AB0  88 88 88              BYTE $88,$88,$88,$77,$77,$87,$88,$88,$88,$87,$88,$88,$78,$77,$77,$87
+00578  2AC0  88 88 78              BYTE $88,$88,$78,$87,$88,$88,$88,$77,$77,$87,$88,$88,$78,$88,$88,$88
+00579  2AD0  88 77 77              BYTE $88,$77,$77,$87,$88,$88,$88,$87,$88,$88,$88,$88,$78,$77,$87,$88
+00580  2AE0  78 77 88              BYTE $78,$77,$88,$88,$88,$78,$88,$77,$88,$88,$88,$77,$77,$88,$89,$88
+00581  2AF0  77 77 77              BYTE $77,$77,$77,$88,$88,$77,$77,$98,$88,$78,$77,$87,$88,$88,$77,$88
+00582  2B00  68 76 99              BYTE $68,$76,$99,$89,$78,$76,$98,$78,$76,$88,$88,$78,$87,$89,$88,$78
+00583  2B10  87 88 77              BYTE $87,$88,$77,$88,$88,$68,$75,$A9,$89,$77,$76,$A9,$68,$75,$99,$78
+00584  2B20  76 A8 79              BYTE $76,$A8,$79,$77,$88,$88,$67,$88,$78,$87,$79,$75,$99,$88,$78,$86
+00585  2B30  9A 46 97              BYTE $9A,$46,$97,$89,$67,$75,$BA,$57,$97,$78,$78,$66,$A9,$68,$A8,$47
+00586  2B40  A6 7A 97              BYTE $A6,$7A,$97,$67,$B8,$49,$95,$8A,$87,$57,$B7,$6B,$85,$8A,$87,$68
+00587  2B50  97 79 97              BYTE $97,$79,$97,$69,$74,$9A,$87,$68,$A6,$7B,$74,$99,$88,$57,$97,$77
+00588  2B60  99 76 9A              BYTE $99,$76,$9A,$65,$99,$76,$78,$98,$36,$B7,$6A,$86,$77,$AA,$45,$B8
+00589  2B70  79 77 87              BYTE $79,$77,$87,$79,$87,$88,$98,$68,$97,$78,$87,$87,$99,$46,$B7,$7A
+00590  2B80  87 87 9A              BYTE $87,$87,$9A,$55,$A8,$78,$78,$86,$8A,$64,$9A,$87,$79,$85,$7A,$75
+00591  2B90  88 88 79              BYTE $88,$88,$79,$75,$9A,$87,$79,$96,$7A,$76,$88,$88,$67,$97,$78,$77
+00592  2BA0  98 78 87              BYTE $98,$78,$87,$88,$77,$77,$88,$78,$97,$79,$85,$9A,$76,$88,$98,$68
+00593  2BB0  97 79 77              BYTE $97,$79,$77,$77,$88,$78,$88,$78,$87,$77,$88,$77,$87,$87,$88,$77
+00594  2BC0  88 98 59              BYTE $88,$98,$59,$95,$7A,$87,$77,$99,$67,$88,$88,$78,$87,$88,$87,$88
+00595  2BD0  88 87 78              BYTE $88,$87,$78,$87,$88,$77,$88,$88,$77,$88,$88,$77,$87,$88,$77,$78
+00596  2BE0  87 78 87              BYTE $87,$78,$87,$78,$88,$77,$78,$87,$88,$77,$88,$77,$88,$87,$78,$87
+00597  2BF0  78 87 88              BYTE $78,$87,$88,$78,$88,$87,$88,$77,$88,$88,$78,$87,$78,$87,$88,$87
+00598  2C00  88 88 77              BYTE $88,$88,$77,$88,$78,$87,$88,$77,$88,$88,$88,$88,$88,$78,$88,$78
+00599  2C10  87 88 77              BYTE $87,$88,$77,$88,$88,$78,$88,$78,$88,$78,$87,$88,$88,$87,$88,$78
+00600  2C20  88 88 88              BYTE $88,$88,$88,$88,$78,$87,$88,$87,$88,$88,$88,$88,$78,$88,$88,$87
+00601  2C30  88 88 87              BYTE $88,$88,$87,$88,$77,$88,$78,$88,$88,$88,$87,$88,$88,$88,$88,$88
+00602  2C40  88 78 88              BYTE $88,$78,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88
+00603  2C50  88 88 88              BYTE $88,$88,$88,$88,$88,$78,$87,$87,$78,$78,$88,$88,$77,$88,$88,$87
+00604  2C60  87 88 78              BYTE $87,$88,$78,$78,$88,$88,$77,$88,$88,$88,$88,$88,$88,$88,$88,$87
+00605  2C70  88 88 88              BYTE $88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88
+00606  2C80  88 88 88              BYTE $88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88
+00607  2C90  88 88 88              BYTE $88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88
+00608  2CA0  88 88 88              BYTE $88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88
+00609  2CB0  88 88 88              BYTE $88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88
+00610  2CC0  88 88 88              BYTE $88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88
+00611  2CD0  88 88 88              BYTE $88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88
+00612  2CE0  88 88 88              BYTE $88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88
+00613  2CF0  88 88 88              BYTE $88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88
+00614  2D00  88 88 88              BYTE $88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88
+00615  2D10  88 88 88              BYTE $88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88
+00616  2D20  78 88 88              BYTE $78,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88
+00617  2D30  78 88 88              BYTE $78,$88,$88,$78,$88,$88,$87,$87,$88,$88,$78,$88,$88,$88,$88,$88
+00618  2D40  88 88 88              BYTE $88,$88,$88,$88,$88,$87,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88
+00619  2D50  88 88 88              BYTE $88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$87,$88,$88
+00620  2D60  88 88 88              BYTE $88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88
+00621  2D70  88 88 88              BYTE $88,$88,$88,$88,$88,$78,$88,$87,$88,$88,$88,$88,$78,$77,$87,$88
+00622  2D80  88 88 88              BYTE $88,$88,$88,$88,$78,$77,$87,$88,$88,$88,$88,$88,$87,$88,$88,$88
+00623  2D90  88 88 88              BYTE $88,$88,$88,$88,$77,$87,$88,$88,$88,$88,$88,$77,$78,$87,$88,$88
+00624  2DA0  88 88 78              BYTE $88,$88,$78,$88,$87,$88,$88,$88,$88,$88,$88,$77,$78,$88,$88,$88
+00625  2DB0  88 88 88              BYTE $88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$78,$77,$88,$88,$88,$88
+00626  2DC0  88 78 77              BYTE $88,$78,$77,$88,$88,$88,$88,$88,$88,$88,$88,$88,$77,$88,$88,$88
+00627  2DD0  88 88 88              BYTE $88,$88,$88,$88,$78,$87,$88,$88,$78,$77,$88,$88,$88,$88,$78,$87
+00628  2DE0  88 88 88              BYTE $88,$88,$88,$88,$88,$87,$88,$88,$78,$88,$88,$88,$88,$77,$87,$88
+00629  2DF0  88 88 78              BYTE $88,$88,$78,$88,$88,$88,$88,$77,$77,$88,$88,$88,$88,$88,$88,$88
+00630  2E00  88 88 88              BYTE $88,$88,$88,$88,$88,$88,$87,$88,$88,$88,$88,$88,$88,$88,$88,$88
+00631  2E10  88 88 87              BYTE $88,$88,$87,$88,$88,$88,$88,$78,$88,$88,$88,$88,$88,$88,$77,$87
+00632  2E20  88 88 88              BYTE $88,$88,$88,$88,$88,$88,$88,$88,$88,$87,$78,$88,$88,$88,$88,$88
+00633  2E30  88 78 87              BYTE $88,$78,$87,$88,$88,$88,$88,$88,$88,$78,$87,$78,$88,$88,$88,$88
+00634  2E40  88 78 88              BYTE $88,$78,$88,$88,$88,$88,$88,$88,$78,$88,$88,$88,$88,$88,$87,$88
+00635  2E50  88 88 88              BYTE $88,$88,$88,$88,$77,$87,$87,$88,$88,$88,$88,$88,$88,$88,$88,$88
+00636  2E60  88 88 78              BYTE $88,$88,$78,$88,$88,$88,$88,$88,$87,$88,$88,$88,$87,$87,$88,$88
+00637  2E70  88 88 88              BYTE $88,$88,$88,$88,$78,$88,$88,$88,$88,$78,$78,$88,$88,$88,$88,$78
+00638  2E80  78 88 88              BYTE $78,$88,$88,$88,$88,$87,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88
+00639  2E90  88 88 87              BYTE $88,$88,$87,$88,$88,$78,$88,$88,$78,$88,$88,$88,$88,$88,$88,$87
+00640  2EA0  88 88 88              BYTE $88,$88,$88,$88,$78,$87,$87,$88,$88,$88,$87,$88,$88,$88,$88,$88
+00641  2EB0  88 78 88              BYTE $88,$78,$88,$88,$88,$87,$87,$88,$88,$88,$88,$88,$88,$88,$88,$88
+00642  2EC0  88 87 88              BYTE $88,$87,$88,$88,$88,$78,$88,$88,$88,$87,$78,$88,$78,$88,$88,$88
+00643  2ED0  88 88 78              BYTE $88,$88,$78,$88,$88,$88,$88,$88,$88,$78,$88,$88,$88,$87,$88,$88
+00644  2EE0  78 88 88              BYTE $78,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88
+00645  2EF0  88 88 88              BYTE $88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$87,$88
+00646  2F00  88 88 88              BYTE $88,$88,$88,$88,$88,$88,$88,$88,$78,$88,$88,$88,$88,$88,$78,$78
+00647  2F10  78 88 88              BYTE $78,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88
+00648  2F20  88 88 88              BYTE $88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88
+00649  2F30  88 88 88              BYTE $88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88
+00650  2F40  88 88 88              BYTE $88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88
+00651  2F50  88 88 88              BYTE $88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88
+00652  2F60  88 88 88              BYTE $88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88
+00653  2F70  88 88 88              BYTE $88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88
+00654  2F80  88 88 88              BYTE $88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88
+00655  2F90  88 88 88              BYTE $88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88
+00656  2FA0  88 88 88              BYTE $88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88
+00657  2FB0  88 88 88              BYTE $88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88
+00658  2FC0  88 88 88              BYTE $88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88
+00659  2FD0  88 88 88              BYTE $88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88
+00660  2FE0  88 88 88              BYTE $88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88
+00661  2FF0  88 88 88              BYTE $88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88
+00662  3000             DATASTOP
+00663  3000             
+
+******* 9 Label(s) *******
+DATASTART = $2000 
+DATASTOP = $3000 
+loadnew = $1185 
+nextPeekPage = $116B 
+NMI_HANDLER0 = $1100 
+NMI_HANDLER1 = $1129 
+NMI_HANDLER2 = $1144 
+NMI_HANDLER3 = $1175 
+peeknext = $1154 
+
+******* 2 Unused label(s) *******
+@nextPage
+@SIDCLR
+@stop
+loadnew
+peeknext
+
+******* 94 Variable(s) *******
+ATDCY1  = $D405
+ATDCY2  = $D40C
+ATDCY3  = $D413
+basicFP2IntH  = $0004
+basicFP2IntL  = $0003
+basicInt2FPH  = $0006
+basicInt2FPL  = $0005
+BGCOL0  = $D021
+BGCOL1  = $D022
+BGCOL2  = $D023
+BGCOL3  = $D024
+cCodeBuffer  = $C200
+CIAPRA  = $DC00
+CIAPRB  = $DC01
+COLORRAM  = $D800
+daL  = $00A5
+daM  = $00A6
+dbL  = $00A7
+dbM  = $00A8
+EXTCOL  = $D020
+flag  = $00FB
+FREHI1  = $D401
+FREHI2  = $D408
+FREHI3  = $D40F
+FRELO1  = $D400
+FRELO2  = $D407
+FRELO3  = $D40E
+freq  = $0080
+frL  = $00A9
+frM  = $00AA
+MSIGX  = $D010
+n0H  = $0021
+n0L  = $0019
+n0M  = $0020
+notUsed0  = $0092
+notused1  = $0093
+notused10  = $00B5
+notused11  = $00BD
+notused12  = $00BF
+notused13  = $00C0
+notused14  = $00F7
+notused15  = $00F8
+notused16  = $00F9
+notused17  = $00FA
+notused2  = $0096
+notused2x  = $009C
+notused3  = $00AE
+notused4  = $00AF
+notused5  = $00B0
+notused6  = $00B1
+notused7  = $00B2
+notused8  = $00B3
+notused9  = $00B4
+outBufTail  = $009B
+outbyte  = $00BE
+OutputBuffer  = $C000
+ptr  = $00FD
+PWHI1  = $D403
+PWHI2  = $D40A
+PWHI3  = $D411
+PWLO1  = $D402
+PWLO2  = $D409
+PWLO3  = $D410
+RASTER  = $D012
+sample  = $00FC
+SCREENRAM  = $0400
+SCROLX  = $D016
+SID  = $D400
+SIGVOL  = $D418
+SP0COL  = $D027
+SP0X  = $D000
+SP0Y  = $D001
+SPBGPR  = $D01B
+SPENA  = $D015
+SPMC  = $D01C
+SPMC0  = $D025
+SPMC1  = $D026
+SPSPCL  = $D01E
+SUREL1  = $D406
+SUREL2  = $D40D
+SUREL3  = $D414
+tempForX  = $0097
+tgt_c64  = $0001
+VCREG1  = $D404
+VCREG2  = $D40B
+VCREG3  = $D412
+VMCSB  = $D018
+xIndex  = $009E
+yIndex  = $009F
+ZeroPageHigh2  = $00FE
+ZeroPageTemp  = $0002
+zpA  = $00AB
+zpX  = $00AC
+zpY  = $00AD
+******* 88 Unused variables(s) *******
+ATDCY1
+ATDCY2
+ATDCY3
+basicFP2IntH
+basicFP2IntL
+basicInt2FPH
+basicInt2FPL
+BGCOL0
+BGCOL1
+BGCOL2
+BGCOL3
+cCodeBuffer
+CIAPRA
+CIAPRB
+COLORRAM
+daL
+daM
+dbL
+dbM
+EXTCOL
+flag
+FREHI1
+FREHI2
+FREHI3
+FRELO1
+FRELO2
+FRELO3
+frL
+frM
+MSIGX
+n0H
+notUsed0
+notused1
+notused10
+notused11
+notused12
+notused13
+notused14
+notused15
+notused16
+notused17
+notused2
+notused2x
+notused3
+notused4
+notused5
+notused6
+notused7
+notused8
+notused9
+outBufTail
+outbyte
+OutputBuffer
+ptr
+PWHI1
+PWHI2
+PWHI3
+PWLO1
+PWLO2
+PWLO3
+RASTER
+sample
+SCREENRAM
+SCROLX
+SID
+SIGVOL
+SP0COL
+SP0X
+SP0Y
+SPBGPR
+SPENA
+SPMC
+SPMC0
+SPMC1
+SPSPCL
+SUREL1
+SUREL2
+SUREL3
+tempForX
+tgt_c64
+VCREG1
+VCREG2
+VCREG3
+VMCSB
+xIndex
+yIndex
+ZeroPageHigh2
+ZeroPageTemp
+zpA
+zpX
+zpY
+

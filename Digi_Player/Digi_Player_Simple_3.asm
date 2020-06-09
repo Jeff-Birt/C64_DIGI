@@ -1,28 +1,49 @@
-;SID     = $D400         ; base address of SID chip
-;start   = DATASTART     ; start of sample
-;end     = DATASTOP      ; end of sample
-;freq    = $80           ; CIA NMI timer delay
-;ptr     = $fd           ; pointer to current byte of sample
+
+flagSeed = $55           ; flag seed, 8kHz
+freq     = $80           ; CIA NMI timer delay, 8kHz
+;flagSeed = $00           ; flag seed, 4Hz
+;freq    = $100          ; CIA NMI timer delay, 4kHz
+
+
+;===============================================================================
+; BASIC Loader
+
+*=$0801 ; 10 SYS (2064)
+
+        byte $0E, $08, $0A, $00, $9E, $20, $28, $34
+        byte $30, $39, $36, $29, $00, $00, $00
+
+        ; Our code starts at $0810 (2064 decimal)
+        ; after the 15 bytes for the BASIC loader
+
+;===============================================================================
+
+
 
 *= $1000
 
 ;-------------------------------------------------------------------------------
 ; Initialize DIGI_Player
 
-        ; switch out roms while sample playing
-        LDA #$35                ;
-        STA $01                 ; 6510 banking register
+        PHA
+        TXA
+        PHA
 
         ; disable interrupts
-        LDA #$00                ; was $F7 in the_c64_digi.txt
-        STA $DD0D               ; ICR CIA #2
-        LDA $DD0D               ; read acks any pending interrupt
-        ;SEI                    ; disables maskable interrupts
+        LDA #$00                ; was $7f in the_c64_digi.txt
+        STA $DC0D               ; ICR CIA #2
+        STA $DD0D               ; read acks any pending interrupt
+        LDA $DC0D
+        LDA $DD0D
+        SEI                    ; disables maskable interrupts
+
+        ; switch out kernal rom while sample playing
+        LDA #$35                ;
+        STA $01                 ; 6510 banking register
 
         ; initialize SID
         LDA #$00                ; zeros out all SID registers
         LDX #$00                ;
-
 @SIDCLR                         ;
         STA SID,x               ; 
         INX                     ;
@@ -54,15 +75,10 @@
         LDA #$F7                ;
         STA SID+$17             ; filter  voices+reso 
 
-         ; blank screen, don't really have to though
-;         lda $D011      ; VICII control register 1
-;         and #$EF
-;         sta $D011 
-
         ; point to our player routine
         LDA #<NMI_HANDLER       ; set NMI handler address low byte
         STA $FFFA               ;
-        LDA #>NMI_HANDLER       ; set NMI handler address low byte
+        LDA #>NMI_HANDLER       ; set NMI handler address hi byte
         STA $FFFB               ;
 
         LDA #<DATASTART         ; low byte
@@ -70,9 +86,9 @@
         LDA #>DATASTART         ; high byte
         STA loadnew+2           ;
 
-        LDY #$55                ; initialize flag used for
-        STY flag                ; indicating which nibble to play
-        LDA loadnew+1           ; loads first sample byte
+        LDA #flagSeed           ; initialize flag used for
+        STA flag                ; indicating which nibble to play
+        LDA DATASTART           ; loads first sample byte
         STA sample              ; save to temp storage address
         INC loadnew+1           ; # - increment self-mod pointer LSB
 
@@ -87,7 +103,10 @@
         LDA #$11                ;
         STA $DD0E               ; CRA interrupt enable
 
-endless 
+        PLA
+        TAX
+        PLA
+endless        
         RTS                     ; can RTS or
         ;JMP endless             ; endless loop for demo purposes
 
@@ -149,7 +168,7 @@ loadnew
         RTI                     ; 6- (18-21)faster than jumps/branches
 
 @stop
-        LDA #$00                ; 2- turn off NMI
+        LDA #$08                ; 2- turn off NMI
         STA $DD0E               ; 4- timer A stop-CRA, CIA #1 DC0E
         LDA #$4F                ; 2- disable all CIA-2 NMIs 
         STA $DD0D               ; 4- ICR - interrupt control / status
@@ -159,6 +178,7 @@ loadnew
         STA $01                 ; 3- (5)
         
         PLA                     ; 3- local exit code is smaller and
+        CLI
         RTI                     ; 6- faster than jumps/branches
 
 

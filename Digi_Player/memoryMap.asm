@@ -9,14 +9,14 @@ basicInt2FPL    = $05
 basicInt2FPH    = $06
                 ; $03-$8F   Reserved for BASIC
                 ; using $73-$8A CHRGET as BASIC
-freq            = $80 ; CIA NMI timer delay
+;freq            = $80 ; CIA NMI timer delay
                 ; $90-$FA   Reserved for Kernal
 notUsed0        = $92 ; was used for tape loading
 notused1        = $93 ; was used for tape loading/verify
-outBufHead      = $96 ; was used for tape loading
+notused2        = $96 ; was used for tape loading
 tempForX        = $97 ; temp storage for X register (kernal)
 outBufTail      = $9B ; was used for tape loading
-notused2        = $9C ; was used for tape loading
+notused2x       = $9C ; was used for tape loading
 xIndex          = $9E ; was used for tape loading
 yIndex          = $9F ; was used for tape loading
 daL             = $A5 ; was used for tape loading

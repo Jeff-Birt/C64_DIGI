@@ -11,12 +11,15 @@ using System.IO;
 
 namespace PCM_Cruncher
 {
+    enum OutputRate { S8K = 1, S4K = 2 };
+
     public partial class Form1 : Form
     {
         #region UI
         public Form1()
         {
             InitializeComponent();
+            cbRate.SelectedIndex = 0;
         }
 
         /// <summary>
@@ -74,10 +77,11 @@ namespace PCM_Cruncher
             {
                 tbStatus.Text += "Input file does not exist!";
             }
-        }  
-        
+        }
+
+
         /// <summary>
-        /// Round up and downsample from 8bit to 4bit PCM
+        /// 8kHz PCM Crucncher, Round up and downsample from 8bit to 4bit PCM
         /// </summary>
         /// <param name="sender"></param>
         /// <param name="e"></param>
@@ -87,9 +91,13 @@ namespace PCM_Cruncher
             string outputFile = "";
             long outputFileSize = -1;
 
+            OutputRate rate = OutputRate.S4K;
+            if (cbRate.SelectedIndex == 1) 
+                { rate = OutputRate.S8K; }
+
             if (File.Exists(inputFile))
             {
-                outputFile = crunchFile(inputFile);
+                outputFile = crunchFile(inputFile, rate);
                 tbFile.Text = outputFile;
 
                 if (File.Exists(outputFile))
@@ -108,6 +116,38 @@ namespace PCM_Cruncher
             else
             {
                 tbStatus.Text += "Input file does not exist!";
+            }
+
+        }
+
+        /// <summary>
+        /// Upscale a 4khz rate file to 8khz
+        /// used to test upsacling 
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
+        private void btnUpscale_Click(object sender, EventArgs e)
+        {
+            string inputFile = tbFile.Text;
+            string outputFile = "";
+            long outputFileSize = -1;
+
+            if (File.Exists(inputFile))
+            {
+                outputFile = upscale4to8(inputFile);
+                tbFile.Text = outputFile;   // update file name text box
+
+                if (File.Exists(outputFile))
+                {
+                    outputFileSize = new System.IO.FileInfo(outputFile).Length;
+                }
+                long inputFileSize = new System.IO.FileInfo(inputFile).Length;
+
+                tbStatus.Text += Environment.NewLine;
+                tbStatus.Text += "Upsacle 4khz to 8khz (_UP)" + Environment.NewLine;
+                tbStatus.Text += "Input file size (bytes): " + inputFileSize.ToString() + Environment.NewLine;
+                tbStatus.Text += "Output file size (bytes): " + outputFileSize.ToString() + Environment.NewLine;
+                tbStatus.Text += "Done" + Environment.NewLine;
             }
 
         }
@@ -284,7 +324,7 @@ namespace PCM_Cruncher
         /// </summary>
         /// <param name="inputFile"></param>
         /// <returns>output file name</returns>
-        private string crunchFile(string inputFile)
+        private string crunchFile(string inputFile, OutputRate rate)
         {
             string outputFile = "";
 
@@ -299,30 +339,37 @@ namespace PCM_Cruncher
                 BinaryWriter fileWriter = new BinaryWriter(outputfs);
 
                 int lowNibble = 0;
-
+                int hiLo = 0;
+                int round = (int)nudRound.Value;
                 long fileSize = inputfs.Length;
-                long outputFileSize = (long)(fileSize / 2 + 0.5);
                 for (long i = 0; i < fileSize; i++)
                 {
                     byte nextByte = fileReader.ReadByte();
-                    if (nextByte + 2 < 0xFF) { nextByte += 2; } // round up lower nibble
 
-                    // If this is an odd byte save upper nibble shifted to lower nibble position
-                    // If this is an even byte combine this upper nibble with last nibble
-                    if ((i % 2) == 0)
+                    // process every input byte for 8K output and every other for 4K
+                    if ((rate == OutputRate.S8K) || ((i % 2) == 0) )
                     {
-                        int highNibble = (int)nextByte & 0xF0;
-                        lowNibble = lowNibble | highNibble;
-                        lowNibble = Math.Max(1, lowNibble); // make sure we have no 0x00 bytes
-                        fileWriter.Write((byte)lowNibble);
-                    }
-                    else
-                    {
-                        lowNibble = nextByte >> 4;
+                        //if (nextByte + round < 0xFF) { nextByte += round; } // round up
+
+                        // If this is an odd byte save upper nibble shifted to lower nibble position
+                        // If this is an even byte combine this upper nibble with last nibble
+                        if ((hiLo % 2) != 0)
+                        {
+                            int highNibble = (int)nextByte & 0xF0;
+                            lowNibble = lowNibble | highNibble;
+                            lowNibble = Math.Max(1, lowNibble); // make sure we have no 0x00 bytes
+                            fileWriter.Write((byte)lowNibble);
+                        }
+                        else
+                        {
+                            lowNibble = nextByte >> 4;
+                        }
+                        hiLo++;
                     }
                 }
 
                 // pad the file so it ends on page boundry in C64
+                long outputFileSize = (long)(fileSize / ((int)rate * 2) + 0.5);
                 int padding = (int)(255 - (outputFileSize % 256));
                 for (int p = 0; p < padding; p++)
                 {
@@ -335,6 +382,70 @@ namespace PCM_Cruncher
                 fileWriter.Close();
                 outputfs.Close();
 
+            }
+
+            return outputFile;
+        }
+
+        /// <summary>
+        /// Upscale a 4khz crunched file to 8khz
+        /// used to provide data to test C64 code
+        /// </summary>
+        /// <param name="inputFile"></param>
+        /// <returns></returns>
+        private string upscale4to8(string inputFile)
+        {
+            string outputFile = "";
+
+            if (inputFile != "")
+            {
+                outputFile = buildOutputFileName(inputFile, "_UP");
+
+                FileStream inputfs = new FileStream(inputFile, FileMode.Open, FileAccess.Read);
+                BinaryReader fileReader = new BinaryReader(inputfs);
+
+                FileStream outputfs = new FileStream(outputFile, FileMode.CreateNew);
+                BinaryWriter fileWriter = new BinaryWriter(outputfs);
+
+                int index = 0;
+                int lowNibble = 0;
+                int midNibble = 0;
+                int highNibble = 0;
+                int lastNibble = 0;
+                long fileSize = inputfs.Length;
+                for (long i = 0; i < fileSize; i++)
+                {
+                    byte nextByte = fileReader.ReadByte();
+
+                    switch (index) {
+                        case 0: // writes (midA | lowA), saves hiA
+                            lowNibble = nextByte & 0x0F;
+                            highNibble = nextByte >> 4;
+                            midNibble = (lowNibble + highNibble) >> 1;
+                            fileWriter.Write((byte)((midNibble << 4) | lowNibble));
+                            
+                            lastNibble = highNibble;
+                            index = 1;
+                            break;
+                        case 1: // writes (midAB | hiA), writes (midB | lowB), saves hiB
+                            lowNibble = nextByte & 0x0F;
+                            highNibble = nextByte >> 4;
+                            midNibble = (lowNibble + lastNibble) >> 1;
+                            fileWriter.Write((byte)((midNibble << 4) | lastNibble));
+
+                            midNibble = (lowNibble + highNibble) >> 1;
+                            fileWriter.Write((byte)((midNibble << 4) | lowNibble));
+
+                            lastNibble = highNibble;
+                            break;
+                    }
+                }
+
+                fileReader.Close();
+                inputfs.Close();
+
+                fileWriter.Close();
+                outputfs.Close();
             }
 
             return outputFile;
