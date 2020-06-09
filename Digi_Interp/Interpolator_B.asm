@@ -36,7 +36,7 @@ freq     = $90           ; CIA NMI timer delay, 8kHz
         STA $DD0D               ; read acks any pending interrupt
         LDA $DC0D
         LDA $DD0D
-        SEI                    ; disables maskable interrupts
+        SEI                     ; disables maskable interrupts
 
         LDA #$35                ; switch out kernal rom while sample playing
         STA $01                 ; 6510 banking register
@@ -81,17 +81,6 @@ freq     = $90           ; CIA NMI timer delay, 8kHz
 ;         AND #$EF
 ;         STA $D011 
 
-;        ; point to our player routine
-;        LDA #<NMI_HANDLER       ; set NMI handler address low byte
-;        STA $FFFA               ;
-;        LDA #>NMI_HANDLER       ; set NMI handler address hi byte
-;        STA $FFFB               ;
-
-;        LDA #<DATASTART         ; low byte
-;        STA loadnew+1           ;
-;        LDA #>DATASTART         ; high byte
-;        STA loadnew+2           ;
-
         ; set up the various ''pointers'
         LDA #<NMI_HANDLER      ; point to our first NMI handler 
         STA $FFFA               ; NMI handler address low byte
@@ -114,12 +103,6 @@ freq     = $90           ; CIA NMI timer delay, 8kHz
         sta n0L                 ; low nibble zero page spot
         INC loadnew+1           ; increment self-mod pointer LSB
 
-;; init - load sample A, separate hi & lo nibbles in NMI_HANDLER0
-;; we have three storage bytes in zero page hi, mid, low
-;        lda loadnew+1           ; 3- get new sample byte
-;        sta n0L                 ; 3- save low nibble
-;        INC loadnew+1           ; 5 - increment self-mod pointer LSB
-;                                ; total cycles 30
         ; setup CIA #2, do last as it starts interrupts!
         LDA #<freq              ; interrupt freq
         STA $DD04               ; TA LO
@@ -131,9 +114,9 @@ freq     = $90           ; CIA NMI timer delay, 8kHz
         LDA #$11                ;
         STA $DD0E               ; CRA interrupt enable
 
-        PLA
-        TAX
-        PLA
+        PLA                     ; Let's get back out X
+        TAX                     ;
+        PLA                     ; and A we saved
 
 endless 
         RTS                     ; can RTS or
@@ -203,33 +186,15 @@ peeknext
 
         INC peeknext+1          ; 5 - increment self-mod pointer LSB
         BEQ nextPeekPage        ; 2-3 (7-8) did we cross a page?
-
-;        LDA #<NMI_HANDLER3      ; 3- set NMI handler address low byte
-;        STA $FFFA               ; 4- (7) 
         
         PLA                     ; 3- local exit code is smaller and
         RTI                     ; 6- (9)
 
 nextPeekPage
         INC peeknext+2          ; 3- increment self-mod pointer MSB
-;        LDA #<NMI_HANDLER3      ; 3- set NMI handler address low byte
-;        STA $FFFA               ; 4- (10)
 
         PLA                     ; 3- local exit code is smaller and
         RTI                     ; 6- (9)
-
-
-;        lda loadnew+1           ; 3- peek at next sample byte
-;        and #$0F                ; 2- (12) mask off low nibble                  
-;        clc                     ; 2- clear carry before add
-;        adc n0L                 ; 3- add low nibble to previuos hi nibble
-;        lsr                     ; 2- /2 to get an average
-;        sta n0L                 ; 3- (10) save it as the mid point value
-
-;        PLA                     ; 3- local exit code is smaller and
-;        RTI                     ; 6- (9)
-        ; total cycles 30+3 = 33 branch3
-        ; total cycles 30+12+10+9 = 61
 
 
 ISR_3

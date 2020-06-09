@@ -25,9 +25,9 @@ freq     = $80           ; CIA NMI timer delay, 8kHz
 ;-------------------------------------------------------------------------------
 ; Initialize DIGI_Player
 
-        PHA
-        TXA
-        PHA
+        PHA                     ; We need to save both A
+        TXA                     ;
+        PHA                     ; and X as we use them
 
         ; disable interrupts
         LDA #$00                ; was $7f in the_c64_digi.txt
@@ -103,9 +103,9 @@ freq     = $80           ; CIA NMI timer delay, 8kHz
         LDA #$11                ;
         STA $DD0E               ; CRA interrupt enable
 
-        PLA
-        TAX
-        PLA
+        PLA                     ; Let's get our X and
+        TAX                     ; 
+        PLA                     ; A that we saved
 endless        
         RTS                     ; can RTS or
         ;JMP endless             ; endless loop for demo purposes

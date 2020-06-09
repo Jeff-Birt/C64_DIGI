@@ -4,7 +4,7 @@
 <!-- Project Target : C64 -->
 <Project>
     <Target>2</Target>
-    <Executable>speach_digitizer.prg</Executable>
+    <Executable>digi_player.prg</Executable>
     <StartAddress>2049</StartAddress>
     <FilesGlobal>False</FilesGlobal>
     <BatchMode>False</BatchMode>
@@ -15,7 +15,7 @@
     <Comments />
     <Author />
     <Email />
-    <AutoLaunchName>speach_digitizer.prg</AutoLaunchName>
+    <AutoLaunchName>digi_player.prg</AutoLaunchName>
     <NoSingleFileBuild>False</NoSingleFileBuild>
     <CreatedWithVersion />
     <HasGitRepo>False</HasGitRepo>
@@ -41,8 +41,8 @@
         <PostBuildCommands />
     </BuildEvents>
     <BuildList>
-        <FileName>Destroy_Norm_4K.asm</FileName>
-        <FileName>Interpolator_B.asm</FileName>
+        <FileName>Destroy_Norm_8k.asm</FileName>
+        <FileName>Digi_Player_Simple_3.asm</FileName>
         <FileName>memoryMap.asm</FileName>
     </BuildList>
     <DetermineBuildOrder>1</DetermineBuildOrder>
@@ -53,7 +53,7 @@
     <!--End of screen designer settings-->
     <SourceFiles>
         <SourceFile>
-            <Name>Destroy_Norm_4K.asm</Name>
+            <Name>Destroy_Norm_8k.asm</Name>
             <PrgName />
             <FileType>2</FileType>
             <IncludeInBuild>True</IncludeInBuild>
@@ -64,40 +64,7 @@
             <FileOpen>False</FileOpen>
         </SourceFile>
         <SourceFile>
-            <Name>Destroy_Norm_8k.asm</Name>
-            <PrgName />
-            <FileType>2</FileType>
-            <IncludeInBuild>False</IncludeInBuild>
-            <Regions />
-            <Breakpoints />
-            <Bookmarks />
-            <Topmost>False</Topmost>
-            <FileOpen>False</FileOpen>
-        </SourceFile>
-        <SourceFile>
             <Name>Digi_Player_Simple_3.asm</Name>
-            <PrgName />
-            <FileType>2</FileType>
-            <IncludeInBuild>False</IncludeInBuild>
-            <Regions />
-            <Breakpoints />
-            <Bookmarks />
-            <Topmost>False</Topmost>
-            <FileOpen>False</FileOpen>
-        </SourceFile>
-        <SourceFile>
-            <Name>Interpolator_A.asm</Name>
-            <PrgName />
-            <FileType>2</FileType>
-            <IncludeInBuild>False</IncludeInBuild>
-            <Regions />
-            <Breakpoints />
-            <Bookmarks />
-            <Topmost>False</Topmost>
-            <FileOpen>False</FileOpen>
-        </SourceFile>
-        <SourceFile>
-            <Name>Interpolator_B.asm</Name>
             <PrgName />
             <FileType>2</FileType>
             <IncludeInBuild>True</IncludeInBuild>
@@ -115,19 +82,8 @@
             <Regions />
             <Breakpoints />
             <Bookmarks />
-            <Topmost>False</Topmost>
+            <Topmost>True</Topmost>
             <FileOpen>True</FileOpen>
-        </SourceFile>
-        <SourceFile>
-            <Name>new4k.asm</Name>
-            <PrgName />
-            <FileType>2</FileType>
-            <IncludeInBuild>False</IncludeInBuild>
-            <Regions />
-            <Breakpoints />
-            <Bookmarks />
-            <Topmost>False</Topmost>
-            <FileOpen>False</FileOpen>
         </SourceFile>
         <SourceFile>
             <Name>new8K.asm</Name>
