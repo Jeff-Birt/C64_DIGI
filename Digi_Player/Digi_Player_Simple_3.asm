@@ -8,7 +8,7 @@ freq     = $80           ; CIA NMI timer delay, 8kHz
 ;===============================================================================
 ; BASIC Loader
 
-*=$0801 ; 10 SYS (2064)
+*=$0801 ; 10 SYS (4096)
 
         byte $0E, $08, $0A, $00, $9E, $20, $28, $34
         byte $30, $39, $36, $29, $00, $00, $00
@@ -103,12 +103,18 @@ freq     = $80           ; CIA NMI timer delay, 8kHz
         LDA #$11                ;
         STA $DD0E               ; CRA interrupt enable
 
-        PLA                     ; Let's get our X and
-        TAX                     ; 
-        PLA                     ; A that we saved
-endless        
-        RTS                     ; can RTS or
-        ;JMP endless             ; endless loop for demo purposes
+        LDA #$00                ;
+        STA done                ; reset player done flag
+
+pause
+        LDA done                ; player sets'done' flag when finished, pause
+        BEQ pause               ; until then for clean return to BASIC
+
+        PLA                     ; Let's get our saved
+        TAX                     ; X register and
+        PLA                     ; A register back
+        CLI                     ; enable maskable interrutps again
+        RTS                     ; and return
 
 
 ;-------------------------------------------------------------------------------
@@ -176,9 +182,10 @@ loadnew
 
         LDA #$37                ; 2- reset kernal banking
         STA $01                 ; 3- (5)
+
+        INC done                ; set player done flag
         
         PLA                     ; 3- local exit code is smaller and
-        CLI
         RTI                     ; 6- faster than jumps/branches
 
 
