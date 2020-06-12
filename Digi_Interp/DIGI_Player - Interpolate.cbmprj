@@ -41,9 +41,9 @@
         <PostBuildCommands />
     </BuildEvents>
     <BuildList>
-        <FileName>Destroy_Norm_4K.asm</FileName>
         <FileName>Interpolator_B.asm</FileName>
         <FileName>memoryMap.asm</FileName>
+        <FileName>Destroy_Him_4K_0RND.asm</FileName>
     </BuildList>
     <DetermineBuildOrder>1</DetermineBuildOrder>
     <PaddingByte>0</PaddingByte>
@@ -53,10 +53,43 @@
     <!--End of screen designer settings-->
     <SourceFiles>
         <SourceFile>
-            <Name>Destroy_Norm_4K.asm</Name>
+            <Name>Destroy_Him_4K_0RND.asm</Name>
             <PrgName />
             <FileType>2</FileType>
             <IncludeInBuild>True</IncludeInBuild>
+            <Regions />
+            <Breakpoints />
+            <Bookmarks />
+            <Topmost>False</Topmost>
+            <FileOpen>False</FileOpen>
+        </SourceFile>
+        <SourceFile>
+            <Name>Destroy_Him_4K_2RND.asm</Name>
+            <PrgName />
+            <FileType>2</FileType>
+            <IncludeInBuild>False</IncludeInBuild>
+            <Regions />
+            <Breakpoints />
+            <Bookmarks />
+            <Topmost>False</Topmost>
+            <FileOpen>False</FileOpen>
+        </SourceFile>
+        <SourceFile>
+            <Name>Destroy_Him_4K_4RND.asm</Name>
+            <PrgName />
+            <FileType>2</FileType>
+            <IncludeInBuild>False</IncludeInBuild>
+            <Regions />
+            <Breakpoints />
+            <Bookmarks />
+            <Topmost>False</Topmost>
+            <FileOpen>False</FileOpen>
+        </SourceFile>
+        <SourceFile>
+            <Name>Destroy_Norm_4K.asm</Name>
+            <PrgName />
+            <FileType>2</FileType>
+            <IncludeInBuild>False</IncludeInBuild>
             <Regions />
             <Breakpoints />
             <Bookmarks />

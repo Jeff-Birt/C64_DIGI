@@ -47,7 +47,7 @@ notused16       = $F9 ; was used for tape/RS232
 notused17       = $FA ; was used for tape/RS232
 flag            = $FB ; LSB of current cCodeBuf location 
 sample          = $FC ; MSB of current cCodeBuf location     
-ptr             = $FD ; pointer to current byte of sample
+done            = $FD ; player done flag
 ZeroPageHigh2   = $FE
                 ; $FF       Reserved for Kernal
 

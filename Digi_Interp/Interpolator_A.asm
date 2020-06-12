@@ -10,7 +10,7 @@ freq     = $80           ; CIA NMI timer delay, 8kHz
 ;===============================================================================
 ; BASIC Loader
 
-*=$0801 ; 10 SYS (2064)
+*=$0801 ; 10 SYS (4096)
 
         byte $0E, $08, $0A, $00, $9E, $20, $28, $34
         byte $30, $39, $36, $29, $00, $00, $00
@@ -35,7 +35,7 @@ freq     = $80           ; CIA NMI timer delay, 8kHz
         STA $DD0D               ; read acks any pending interrupt
         LDA $DC0D
         LDA $DD0D
-        SEI                    ; disables maskable interrupts
+        SEI                     ; disables maskable interrupts
 
         LDA #$35                ; switch out kernal rom while sample playing
         STA $01                 ; 6510 banking register
@@ -66,6 +66,11 @@ freq     = $80           ; CIA NMI timer delay, 8kHz
         STA SID+$16             ; filter  hi 
         LDA #$F7                ;
         STA SID+$17             ; filter  voices+reso 
+
+;         ; blank screen, don't really have to though
+;         LDA $D011      ; VICII control register 1
+;         AND #$EF
+;         STA $D011 
 
         ; set up the various ''pointers'
         LDA #<NMI_HANDLER0      ; point to our first NMI handler 
@@ -100,15 +105,25 @@ freq     = $80           ; CIA NMI timer delay, 8kHz
         LDA #$11                ;
         STA $DD0E               ; CRA interrupt enable
 
-        ; restore state and return
-        PLA                     ; get back our X
-        TAX                     ;
-        PLA                     ; get back out A as well
-        RTS                     ; init done, return from call
+        LDA #$00                ;
+        STA done                ; reset player done flag
+
+pause
+        LDA done                ; player sets'done' flag when finished, pause
+        BEQ pause               ; until then for clean return to BASIC
+
+        PLA                     ; Let's get our saved
+        TAX                     ; X register and
+        PLA                     ; A register back
+        CLI                     ; enable maskable interrutps again
+        RTS                     ; and return
 
 
 *= $1100
 
+;-------------------------------------------------------------------------------
+; NMI Handler
+;
 ; We have four different NMI handlers, after NMI_HANDLER0 is done it changes
 ; the NMI vector in HI RAM to point to NMI_HANDLER1, etc. This lets us call the
 ; required code for each stage of interpolation without needing any comparisons
@@ -119,8 +134,7 @@ freq     = $80           ; CIA NMI timer delay, 8kHz
 ; peeknext+1, peeknext+2 is the 'pointer' to peek at the next sample byte, 'B'
 ; All sample data is page aligned so we only need to check for end of data
 ; when crossing a page boundry and we onoly do so for "loadnew"
-
-
+;
 ; We play current loA nibble, calc mid point of hiA-loA save to n0L
 ; and move the hiA which was still in n0L to n0M
 ; total cycles: 22+29+7+9 = 67
@@ -261,8 +275,9 @@ loadnew
         LDA #$37                ; 2- reset kernal banking
         STA $01                 ; 3- (5)
         
+        INC done                ; set player done flag
+        
         PLA                     ; 3- local exit code is smaller and
-        CLI
         RTI                     ; 6- faster than jumps/branches
 
 

@@ -11,7 +11,7 @@ using System.IO;
 
 namespace PCM_Cruncher
 {
-    enum OutputRate { S8K = 1, S4K = 2 };
+    enum OutputRate { SR8K = 1, SR4K = 2 };
 
     public partial class Form1 : Form
     {
@@ -79,9 +79,9 @@ namespace PCM_Cruncher
             }
         }
 
-
         /// <summary>
-        /// 8kHz PCM Crucncher, Round up and downsample from 8bit to 4bit PCM
+        /// PCM Crucncher, Round up and downsample from 8bit to 4bit PCM
+        /// Output can be set to 4khz or 8khz
         /// </summary>
         /// <param name="sender"></param>
         /// <param name="e"></param>
@@ -91,9 +91,9 @@ namespace PCM_Cruncher
             string outputFile = "";
             long outputFileSize = -1;
 
-            OutputRate rate = OutputRate.S4K;
+            OutputRate rate = OutputRate.SR4K;
             if (cbRate.SelectedIndex == 1) 
-                { rate = OutputRate.S8K; }
+                { rate = OutputRate.SR8K; }
 
             if (File.Exists(inputFile))
             {
@@ -320,7 +320,7 @@ namespace PCM_Cruncher
 
         /// <summary>
         /// Rounds a scaled file and downsample to 4bits, cruches two 4bit samples
-        /// in one output byte
+        /// into one output byte. Output can be set to 4khz or 8khz
         /// </summary>
         /// <param name="inputFile"></param>
         /// <returns>output file name</returns>
@@ -330,7 +330,10 @@ namespace PCM_Cruncher
 
             if (inputFile != "")
             {
-                outputFile = buildOutputFileName(inputFile, "_CRN");
+                int round = (int)nudRound.Value;
+
+                string tag = "_" + rate.ToString() + "_" + round.ToString() + "_RND";
+                outputFile = buildOutputFileName(inputFile, tag);
 
                 FileStream inputfs = new FileStream(inputFile, FileMode.Open, FileAccess.Read);
                 BinaryReader fileReader = new BinaryReader(inputfs);
@@ -340,16 +343,15 @@ namespace PCM_Cruncher
 
                 int lowNibble = 0;
                 int hiLo = 0;
-                int round = (int)nudRound.Value;
                 long fileSize = inputfs.Length;
                 for (long i = 0; i < fileSize; i++)
                 {
                     byte nextByte = fileReader.ReadByte();
 
                     // process every input byte for 8K output and every other for 4K
-                    if ((rate == OutputRate.S8K) || ((i % 2) == 0) )
+                    if ((rate == OutputRate.SR8K) || ((i % 2) == 0) )
                     {
-                        //if (nextByte + round < 0xFF) { nextByte += round; } // round up
+                        if (nextByte + round < 0xFF) { nextByte += (byte)round; } // round up
 
                         // If this is an odd byte save upper nibble shifted to lower nibble position
                         // If this is an even byte combine this upper nibble with last nibble
@@ -388,8 +390,8 @@ namespace PCM_Cruncher
         }
 
         /// <summary>
-        /// Upscale a 4khz crunched file to 8khz
-        /// used to provide data to test C64 code
+        /// Upscale a 4khz crunched file to 8khz, this allows us to test an
+        /// externally upsacled file against the quality of the C64 upscaling
         /// </summary>
         /// <param name="inputFile"></param>
         /// <returns></returns>
@@ -399,7 +401,7 @@ namespace PCM_Cruncher
 
             if (inputFile != "")
             {
-                outputFile = buildOutputFileName(inputFile, "_UP");
+                outputFile = buildOutputFileName(inputFile, "_UP8K");
 
                 FileStream inputfs = new FileStream(inputFile, FileMode.Open, FileAccess.Read);
                 BinaryReader fileReader = new BinaryReader(inputfs);
@@ -440,6 +442,9 @@ namespace PCM_Cruncher
                             break;
                     }
                 }
+
+                // need to write out an extra byte to make a full page.
+                fileWriter.Write((byte)((midNibble << 4) | lowNibble));
 
                 fileReader.Close();
                 inputfs.Close();
