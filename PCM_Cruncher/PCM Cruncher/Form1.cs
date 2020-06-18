@@ -11,12 +11,14 @@ using System.IO;
 
 namespace PCM_Cruncher
 {
-    enum OutputRate { SR8K = 1, SR4K = 2 };
+    //enum OutputRate { SR8K = 1, SR4K = 2 };
 
-    public partial class Form1 : Form
+    public partial class Cruncher : Form
     {
+        StreamWriter logWriter;
+
         #region UI
-        public Form1()
+        public Cruncher()
         {
             InitializeComponent();
             cbRate.SelectedIndex = 0;
@@ -91,14 +93,27 @@ namespace PCM_Cruncher
             string outputFile = "";
             long outputFileSize = -1;
 
-            OutputRate rate = OutputRate.SR4K;
-            if (cbRate.SelectedIndex == 1) 
-                { rate = OutputRate.SR8K; }
+            //OutputRate rate = OutputRate.SR4K;
+            //if (cbRate.SelectedIndex == 1) 
+            //    { rate = OutputRate.SR8K; }
 
             if (File.Exists(inputFile))
             {
-                outputFile = crunchFile(inputFile, rate);
-                tbFile.Text = outputFile;
+                if (cbRate.SelectedIndex == 0)
+                {
+                    outputFile = crunch4Avg(inputFile);
+                    tbFile.Text = outputFile;
+                }
+                else if (cbRate.SelectedIndex == 1)
+                {
+                    outputFile = crunch4Skip(inputFile);
+                    tbFile.Text = outputFile;
+                }
+                else
+                {
+                    outputFile = crunch8(inputFile);
+                    tbFile.Text = outputFile;
+                }
 
                 if (File.Exists(outputFile))
                 {
@@ -110,7 +125,6 @@ namespace PCM_Cruncher
                 tbStatus.Text += "Crunch 8bit PCM to packed 4bit PCM (_CRN)" + Environment.NewLine;
                 tbStatus.Text += "Input file size (bytes): " + inputFileSize.ToString() + Environment.NewLine;
                 tbStatus.Text += "Ouput file size (bytes): " + outputFileSize.ToString() + Environment.NewLine;
-                tbStatus.Text += "Output file pages: " + (outputFileSize % 256).ToString() + Environment.NewLine;
                 tbStatus.Text += "Done" + Environment.NewLine;
             }
             else
@@ -227,59 +241,7 @@ namespace PCM_Cruncher
 
         #endregion UI
 
-        /// <summary>
-        /// Find minimum and maximum byte values in a binary file
-        /// </summary>
-        /// <param name="minValue"></param>
-        /// <param name="maxValue"></param>
-        private void findMinMax(string inputFile, bool signed, ref int minValue, ref int maxValue)
-        {
-            if (inputFile != "")
-            {
-                FileStream inputfs = new FileStream(inputFile, FileMode.Open, FileAccess.Read);
-                BinaryReader fileReader = new BinaryReader(inputfs);
-
-                long fileSize = inputfs.Length;
-                for (long i = 0; i < fileSize; i++)
-                {
-                    int v1;
-                    if (signed)
-                    {
-                        v1 = fileReader.ReadSByte();
-                    }
-                    else
-                    {
-                        v1 = fileReader.ReadByte();
-                    }
-
-                    if (v1 < minValue)
-                    {
-                        minValue = v1;
-                    }
-                    else if (v1 > maxValue)
-                    {
-                        maxValue = v1;
-                    }
-                }
-
-                fileReader.Close();
-                inputfs.Close();
-            }
-        }
-
-        /// <summary>
-        /// Finds scalar needed to scale byte array to 1-255
-        /// </summary>
-        /// <param name="minValue"></param>
-        /// <param name="maxValue"></param>
-        /// <returns></returns>
-        private double findScalar(int minValue, int maxValue)
-        {
-            double span = Math.Abs(minValue) + maxValue;
-
-            return 255/span;
-        }
-
+        #region "Data manipulation"
         /// <summary>
         /// Scales binary file to byte range 0-255
         /// </summary>
@@ -294,12 +256,10 @@ namespace PCM_Cruncher
 
                 FileStream inputfs = new FileStream(inputFile, FileMode.Open, FileAccess.Read);
                 BinaryReader fileReader = new BinaryReader(inputfs);
-
                 FileStream outputfs = new FileStream(outputFile, FileMode.CreateNew);
                 BinaryWriter fileWriter = new BinaryWriter(outputfs);
 
                 long fileSize = inputfs.Length;
-
                 for (long i = 0; i < fileSize; i++)
                 {
                     int v1 = (int)(((double)fileReader.ReadSByte() + offset) * scalar) + 128;
@@ -319,12 +279,208 @@ namespace PCM_Cruncher
         }
 
         /// <summary>
-        /// Rounds a scaled file and downsample to 4bits, cruches two 4bit samples
+        /// crunch 4 - Rounds a scaled file and downsample to 4bits, cruches two 4bit samples
         /// into one output byte. Output can be set to 4khz or 8khz
         /// </summary>
         /// <param name="inputFile"></param>
         /// <returns>output file name</returns>
-        private string crunchFile(string inputFile, OutputRate rate)
+        /// Averaging method: state->0=Byte1-lowNib-A, 1=Byte2-lowNib-B, 2=highNib-A, 3=highNib-B
+        /// Skip method: state->0=Byte1-lowNib, 2=Byte3-highNib
+        private string crunch4Avg(string inputFile)
+        {
+            string outputFile = "";
+
+            if (inputFile != "")
+            {
+                int round = (int)nudRound.Value;
+                string tag = "_SR4KAVG_" + round.ToString() + "_RND";
+                outputFile = buildOutputFileName(inputFile, tag);
+
+                FileStream inputfs = new FileStream(inputFile, FileMode.Open, FileAccess.Read);
+                BinaryReader fileReader = new BinaryReader(inputfs);
+                FileStream outputfs = new FileStream(outputFile, FileMode.CreateNew);
+                BinaryWriter fileWriter = new BinaryWriter(outputfs);
+
+                if (cbCSV.Checked) { createLogFile(outputFile); }
+
+                int state = 0;
+                int lowByte = 0;
+                int hiByte = 0;
+                long fileSize = inputfs.Length;
+                for (long i = 0; i < fileSize; i++)
+                {
+                    byte nextByte = fileReader.ReadByte();
+
+                    if (state == 0)
+                    {
+                        lowByte = nextByte;
+                        state = 1;
+                    }
+                    else if (state == 1)
+                    {
+                        lowByte = (lowByte + nextByte) >> 1; // sum last two bytes and /2
+                        lowByte = lowByte + round; // round up
+                        lowByte = Math.Min(lowByte, 255); // clip @ 255
+                        lowByte = lowByte >> 4; // shift to low nibble position
+                        lowByte = Math.Max(lowByte, 1); // never output a zero nibble
+                        state = 2;
+                    }
+                    else if (state == 2)
+                    {
+                        hiByte = nextByte;
+                        state = 3;
+                    }
+                    else if (state == 3)
+                    {
+                        hiByte = (hiByte + nextByte) >> 1; // sum last two bytes and /2
+                        hiByte = hiByte + round; // round up
+                        hiByte = Math.Min(hiByte, 255); // clip @ 255
+                        hiByte = hiByte & 0xF0; // same effect as scaling to 4-bit shifting to upper nibble
+                        hiByte = Math.Max(hiByte, 0x10); // never output a zero nibble
+
+                        fileWriter.Write((byte)(hiByte | lowByte)); // combine hi & low nibbles
+                        if (cbCSV.Checked) 
+                        { 
+                            writeLog(lowByte.ToString());
+                            writeLog((hiByte >> 4).ToString());
+                        }
+                        
+                        state = 0;
+                    }
+
+                }
+
+                // pad the file so it ends on page boundry in C64
+                int page = (int)((fileSize / 2) + 0.5) % 256;
+                int padding = page > 0 ? 256 - page : 0;
+                for (int p = 0; p < padding; p++)
+                {
+                    fileWriter.Write((byte)(lowByte | hiByte)); // combine hi & low nibbles
+                    if (cbCSV.Checked)
+                    {
+                        writeLog(lowByte.ToString());
+                        writeLog((hiByte >> 4).ToString());
+                    }
+                }
+
+                fileReader.Close();
+                inputfs.Close();
+
+                fileWriter.Close();
+                outputfs.Close();
+
+                if (cbCSV.Checked) { closeLogFile(); }
+
+            }
+
+            return outputFile;
+        }
+
+        /// <summary>
+        /// crunch 4 - Rounds a scaled file and downsample to 4bits, cruches two 4bit samples
+        /// into one output byte. Output can be set to 4khz or 8khz
+        /// </summary>
+        /// <param name="inputFile"></param>
+        /// <returns>output file name</returns>
+        /// Skip method: state->0=Byte1-lowNib, 2=Byte3-highNib
+        private string crunch4Skip(string inputFile)
+        {
+            string outputFile = "";
+
+            if (inputFile != "")
+            {
+                int round = (int)nudRound.Value;
+                string tag = "_SR4KSKP_" + round.ToString() + "_RND";
+                outputFile = buildOutputFileName(inputFile, tag);
+
+                FileStream inputfs = new FileStream(inputFile, FileMode.Open, FileAccess.Read);
+                BinaryReader fileReader = new BinaryReader(inputfs);
+                FileStream outputfs = new FileStream(outputFile, FileMode.CreateNew);
+                BinaryWriter fileWriter = new BinaryWriter(outputfs);
+
+                if (cbCSV.Checked) { createLogFile(outputFile); }
+
+                int state = 0;
+                int lowByte = 0;
+                int hiByte = 0;
+                long fileSize = inputfs.Length;
+                for (long i = 0; i < fileSize; i++)
+                {
+                    byte nextByte = fileReader.ReadByte();
+
+                    if (state == 0)
+                    {
+                        lowByte = nextByte;
+                        lowByte = lowByte + round; // round up
+                        lowByte = Math.Min(lowByte, 255); // clip @ 255
+                        lowByte = lowByte >> 4; // shift to low nibble position
+                        lowByte = Math.Max(lowByte, 1); // never output a zero nibble
+                        state = 1;
+                    }
+                    else if (state == 1)
+                    {
+                        // skip this byte
+                        state = 2;
+                    }
+                    else if (state == 2)
+                    {
+                        hiByte = nextByte;
+                        hiByte = (hiByte + nextByte) >> 1; // sum last two bytes and /2
+                        hiByte = hiByte + round; // round up
+                        hiByte = Math.Min(hiByte, 255); // clip @ 255
+                        hiByte = hiByte & 0xF0; // same effect as scaling to 4-bit shifting to upper nibble
+                        hiByte = Math.Max(hiByte, 0x10); // never output a zero nibble
+
+                        fileWriter.Write((byte)(hiByte | lowByte)); // combine hi & low nibbles
+                        if (cbCSV.Checked)
+                        {
+                            writeLog(lowByte.ToString());
+                            writeLog((hiByte >> 4).ToString());
+                        }
+
+                        state = 3;
+                    }
+                    else if (state == 3)
+                    {
+                        //skip this byte
+                        state = 0;
+                    }
+
+                }
+
+                // pad the file so it ends on page boundry in C64
+                int page = (int)((fileSize / 2) + 0.5) % 256;
+                int padding = page > 0 ? 256 - page : 0;
+                for (int p = 0; p < padding; p++)
+                {
+                    fileWriter.Write((byte)(lowByte | hiByte)); // combine hi & low nibbles
+                    if (cbCSV.Checked)
+                    {
+                        writeLog(lowByte.ToString());
+                        writeLog((hiByte >> 4).ToString());
+                    }
+                }
+
+                fileReader.Close();
+                inputfs.Close();
+
+                fileWriter.Close();
+                outputfs.Close();
+
+                if (cbCSV.Checked) { closeLogFile(); }
+
+            }
+
+            return outputFile;
+        }
+
+        /// <summary>
+        /// crunch 8 - Rounds a scaled file and downsample to 4bits, crunches two 4bit samples
+        /// into one output byte. Output is at 8khz
+        /// </summary>
+        /// <param name="inputFile"></param>
+        /// <returns>output file name</returns>
+        private string crunch8(string inputFile)
         {
             string outputFile = "";
 
@@ -332,7 +488,7 @@ namespace PCM_Cruncher
             {
                 int round = (int)nudRound.Value;
 
-                string tag = "_" + rate.ToString() + "_" + round.ToString() + "_RND";
+                string tag = "_SR8K_" + round.ToString() + "_RND";
                 outputFile = buildOutputFileName(inputFile, tag);
 
                 FileStream inputfs = new FileStream(inputFile, FileMode.Open, FileAccess.Read);
@@ -341,41 +497,54 @@ namespace PCM_Cruncher
                 FileStream outputfs = new FileStream(outputFile, FileMode.CreateNew);
                 BinaryWriter fileWriter = new BinaryWriter(outputfs);
 
+                if (cbCSV.Checked) { createLogFile(outputFile); }
+
+                int outByte = 0;
                 int lowNibble = 0;
+                int highNibble = 0;
                 int hiLo = 0;
                 long fileSize = inputfs.Length;
                 for (long i = 0; i < fileSize; i++)
                 {
-                    byte nextByte = fileReader.ReadByte();
+                    int nextByte = fileReader.ReadByte();
 
-                    // process every input byte for 8K output and every other for 4K
-                    if ((rate == OutputRate.SR8K) || ((i % 2) == 0) )
+                    nextByte = nextByte + round; // round up
+                    nextByte = Math.Min(nextByte, 255); // clip @ 255
+
+                    // If this is an odd byte save upper nibble shifted to lower nibble position
+                    // If this is an even byte combine this upper nibble with last nibble
+                    if ((hiLo % 2) != 0)
                     {
-                        if (nextByte + round < 0xFF) { nextByte += (byte)round; } // round up
+                        highNibble = nextByte & 0xF0; // save only high nibble
+                        highNibble = Math.Max(0x10, highNibble); // make sure high nibble > 0
+                        outByte = highNibble | lowNibble;
 
-                        // If this is an odd byte save upper nibble shifted to lower nibble position
-                        // If this is an even byte combine this upper nibble with last nibble
-                        if ((hiLo % 2) != 0)
-                        {
-                            int highNibble = (int)nextByte & 0xF0;
-                            lowNibble = lowNibble | highNibble;
-                            lowNibble = Math.Max(1, lowNibble); // make sure we have no 0x00 bytes
-                            fileWriter.Write((byte)lowNibble);
+                        fileWriter.Write((byte)outByte);
+                        if (cbCSV.Checked) 
+                        { 
+                            writeLog(lowNibble.ToString());
+                            writeLog((highNibble >> 4).ToString());
                         }
-                        else
-                        {
-                            lowNibble = nextByte >> 4;
-                        }
-                        hiLo++;
                     }
+                    else
+                    {
+                        lowNibble = nextByte >> 4;
+                        lowNibble = Math.Max(lowNibble, 1); // never output a zero nibble
+                    }
+                    hiLo++;
                 }
 
                 // pad the file so it ends on page boundry in C64
-                long outputFileSize = (long)(fileSize / ((int)rate * 2) + 0.5);
-                int padding = (int)(255 - (outputFileSize % 256));
+                int page = (int)((fileSize / 2) + 0.5) % 256;
+                int padding = page > 0 ? 256 - page : 0;
                 for (int p = 0; p < padding; p++)
                 {
-                    fileWriter.Write((byte)lowNibble);
+                    fileWriter.Write((byte)outByte);
+                    if (cbCSV.Checked)
+                    {
+                        writeLog(lowNibble.ToString());
+                        writeLog((highNibble >> 4).ToString());
+                    }
                 }
 
                 fileReader.Close();
@@ -383,6 +552,8 @@ namespace PCM_Cruncher
 
                 fileWriter.Close();
                 outputfs.Close();
+
+                if (cbCSV.Checked) { closeLogFile(); }
 
             }
 
@@ -405,38 +576,59 @@ namespace PCM_Cruncher
 
                 FileStream inputfs = new FileStream(inputFile, FileMode.Open, FileAccess.Read);
                 BinaryReader fileReader = new BinaryReader(inputfs);
-
                 FileStream outputfs = new FileStream(outputFile, FileMode.CreateNew);
                 BinaryWriter fileWriter = new BinaryWriter(outputfs);
 
+                if (cbCSV.Checked) { createLogFile(outputFile); }
+
+                byte output = 0;
                 int index = 0;
                 int lowNibble = 0;
                 int midNibble = 0;
                 int highNibble = 0;
                 int lastNibble = 0;
                 long fileSize = inputfs.Length;
+
                 for (long i = 0; i < fileSize; i++)
                 {
                     byte nextByte = fileReader.ReadByte();
 
                     switch (index) {
                         case 0: // writes (midA | lowA), saves hiA
-                            lowNibble = nextByte & 0x0F;
-                            highNibble = nextByte >> 4;
-                            midNibble = (lowNibble + highNibble) >> 1;
-                            fileWriter.Write((byte)((midNibble << 4) | lowNibble));
-                            
+                            lowNibble = nextByte & 0x0F; // all values in low nibble position
+                            highNibble = nextByte >> 4; // all values in low nibble position
+                            midNibble = (lowNibble + highNibble) >> 1; // all values in low nibble position
+                            output = (byte)((midNibble << 4) | lowNibble);
+                            fileWriter.Write(output);
+                            if (cbCSV.Checked) 
+                            { 
+                                writeLog(lowNibble.ToString());
+                                writeLog(midNibble.ToString());
+                            }
+
                             lastNibble = highNibble;
                             index = 1;
                             break;
-                        case 1: // writes (midAB | hiA), writes (midB | lowB), saves hiB
+                        case 1: // writes (mid-HiA-LoB | hiA), writes (midB | lowB), saves hiB
                             lowNibble = nextByte & 0x0F;
                             highNibble = nextByte >> 4;
                             midNibble = (lowNibble + lastNibble) >> 1;
-                            fileWriter.Write((byte)((midNibble << 4) | lastNibble));
+                            output = (byte)((midNibble << 4) | lastNibble);
+                            fileWriter.Write(output);
+                            if (cbCSV.Checked) 
+                            {
+                                writeLog(lastNibble.ToString());
+                                writeLog(midNibble.ToString());
+                            }
 
                             midNibble = (lowNibble + highNibble) >> 1;
-                            fileWriter.Write((byte)((midNibble << 4) | lowNibble));
+                            output = (byte)((midNibble << 4) | lowNibble);
+                            fileWriter.Write(output);
+                            if (cbCSV.Checked)
+                            {
+                                writeLog(lowNibble.ToString());
+                                writeLog(midNibble.ToString());
+                            }
 
                             lastNibble = highNibble;
                             break;
@@ -444,13 +636,21 @@ namespace PCM_Cruncher
                 }
 
                 // need to write out an extra byte to make a full page.
-                fileWriter.Write((byte)((midNibble << 4) | lowNibble));
+                output = (byte)((midNibble << 4) | lowNibble);
+                fileWriter.Write(output);
+                if (cbCSV.Checked)
+                {
+                    writeLog(lowNibble.ToString());
+                    writeLog(midNibble.ToString());
+                }
 
                 fileReader.Close();
                 inputfs.Close();
 
                 fileWriter.Close();
                 outputfs.Close();
+
+                if (cbCSV.Checked) { closeLogFile(); }
             }
 
             return outputFile;
@@ -475,16 +675,12 @@ namespace PCM_Cruncher
 
                 FileStream inputfs = new FileStream(inputFile, FileMode.Open, FileAccess.Read);
                 BinaryReader fileReader = new BinaryReader(inputfs);
-
                 FileStream outputfs = new FileStream(outputFile, FileMode.CreateNew);
                 BinaryWriter fileWriter = new BinaryWriter(outputfs);
 
                 long fileSize = inputfs.Length;
                 for (long i = 0; i < fileSize; i++)
                 {
-                    // if both nibbles are not -1 here we goofed and did not processes them last loop
-                    //if (lowNibble != -1 | highNibble != -1) {tbStatus.Text += "Error!";}
-
                       nextByte = fileReader.ReadByte();
                      lowNibble = (int)nextByte & 0x0F;
                     highNibble = (int)nextByte >> 4;
@@ -671,7 +867,6 @@ namespace PCM_Cruncher
 
                 FileStream inputfs = new FileStream(inputFile, FileMode.Open, FileAccess.Read);
                 BinaryReader fileReader = new BinaryReader(inputfs);
-
                 FileStream outputfs = new FileStream(outputFile, FileMode.CreateNew);
                 BinaryWriter fileWriter = new BinaryWriter(outputfs);
 
@@ -777,7 +972,9 @@ namespace PCM_Cruncher
             sourceNibble = -1;            // flag sourceNibble consumed
             count = 1;                    // reset count
         }
+        #endregion "Data manipulation"
 
+        #region "Misc helper methods"
         /// <summary>
         /// Helper to build output file name
         /// </summary>
@@ -785,11 +982,91 @@ namespace PCM_Cruncher
         /// <returns></returns>
         private string buildOutputFileName(string inputFile, string fileType)
         {
-            return  Path.Combine(Path.GetDirectoryName(inputFile),
+            return Path.Combine(Path.GetDirectoryName(inputFile),
                     Path.GetFileNameWithoutExtension(inputFile) + fileType +
                     Path.GetExtension(inputFile));
         }
 
+        /// <summary>
+        /// Find minimum and maximum byte values in a binary file
+        /// </summary>
+        /// <param name="minValue"></param>
+        /// <param name="maxValue"></param>
+        private void findMinMax(string inputFile, bool signed, ref int minValue, ref int maxValue)
+        {
+            if (inputFile != "")
+            {
+                FileStream inputfs = new FileStream(inputFile, FileMode.Open, FileAccess.Read);
+                BinaryReader fileReader = new BinaryReader(inputfs);
+
+                long fileSize = inputfs.Length;
+                for (long i = 0; i < fileSize; i++)
+                {
+                    int v1;
+                    if (signed)
+                    {
+                        v1 = fileReader.ReadSByte();
+                    }
+                    else
+                    {
+                        v1 = fileReader.ReadByte();
+                    }
+
+                    if (v1 < minValue)
+                    {
+                        minValue = v1;
+                    }
+                    else if (v1 > maxValue)
+                    {
+                        maxValue = v1;
+                    }
+                }
+
+                fileReader.Close();
+                inputfs.Close();
+            }
+        }
+
+        /// <summary>
+        /// Finds scalar needed to scale byte array to 1-255
+        /// </summary>
+        /// <param name="minValue"></param>
+        /// <param name="maxValue"></param>
+        /// <returns></returns>
+        private double findScalar(int minValue, int maxValue)
+        {
+            double span = Math.Abs(minValue) + maxValue;
+            return 255 / span;
+        }
+        #endregion "Misc helper methods"
+
+        #region "Log file methods"
+        /// <summary>
+        /// Helper to create a log file for outputing CSV version of data
+        /// </summary>
+        /// <param name="fileName"></param>
+        private void createLogFile(string fileName)
+        {
+            logWriter = new StreamWriter(fileName + ".csv");
+        }
+
+        /// <summary>
+        /// Write a single data point out as string
+        /// </summary>
+        /// <param name="data"></param>
+        private void writeLog(string data)
+        {
+            logWriter.Write(data + ",");
+        }
+
+        /// <summary>
+        /// Close the log file
+        /// </summary>
+        private void closeLogFile()
+        {
+            logWriter.Close();
+        }
+        #endregion "Log file methods"
 
     }
 }

@@ -41,9 +41,9 @@
         <PostBuildCommands />
     </BuildEvents>
     <BuildList>
-        <FileName>Interpolator_B.asm</FileName>
         <FileName>memoryMap.asm</FileName>
-        <FileName>Destroy_Him_4K_0RND.asm</FileName>
+        <FileName>Interpolator_A.asm</FileName>
+        <FileName>Destroy_Him_8K_SR4KAVG_0_RND.asm</FileName>
     </BuildList>
     <DetermineBuildOrder>1</DetermineBuildOrder>
     <PaddingByte>0</PaddingByte>
@@ -53,7 +53,7 @@
     <!--End of screen designer settings-->
     <SourceFiles>
         <SourceFile>
-            <Name>Destroy_Him_4K_0RND.asm</Name>
+            <Name>Destroy_Him_8K_SR4KAVG_0_RND.asm</Name>
             <PrgName />
             <FileType>2</FileType>
             <IncludeInBuild>True</IncludeInBuild>
@@ -64,7 +64,7 @@
             <FileOpen>False</FileOpen>
         </SourceFile>
         <SourceFile>
-            <Name>Destroy_Him_4K_2RND.asm</Name>
+            <Name>Destroy_Him_8K_SR4KAVG_2_RND.asm</Name>
             <PrgName />
             <FileType>2</FileType>
             <IncludeInBuild>False</IncludeInBuild>
@@ -75,7 +75,7 @@
             <FileOpen>False</FileOpen>
         </SourceFile>
         <SourceFile>
-            <Name>Destroy_Him_4K_4RND.asm</Name>
+            <Name>Destroy_Him_8K_SR4KAVG_4_RND.asm</Name>
             <PrgName />
             <FileType>2</FileType>
             <IncludeInBuild>False</IncludeInBuild>
@@ -86,7 +86,29 @@
             <FileOpen>False</FileOpen>
         </SourceFile>
         <SourceFile>
-            <Name>Destroy_Norm_4K.asm</Name>
+            <Name>Destroy_Him_8K_SR4KSKP_0_RND.asm</Name>
+            <PrgName />
+            <FileType>2</FileType>
+            <IncludeInBuild>False</IncludeInBuild>
+            <Regions />
+            <Breakpoints />
+            <Bookmarks />
+            <Topmost>False</Topmost>
+            <FileOpen>False</FileOpen>
+        </SourceFile>
+        <SourceFile>
+            <Name>Destroy_Him_8K_SR4KSKP_2_RND.asm</Name>
+            <PrgName />
+            <FileType>2</FileType>
+            <IncludeInBuild>False</IncludeInBuild>
+            <Regions />
+            <Breakpoints />
+            <Bookmarks />
+            <Topmost>False</Topmost>
+            <FileOpen>False</FileOpen>
+        </SourceFile>
+        <SourceFile>
+            <Name>Destroy_Him_8K_SR4KSKP_4_RND.asm</Name>
             <PrgName />
             <FileType>2</FileType>
             <IncludeInBuild>False</IncludeInBuild>
@@ -100,17 +122,6 @@
             <Name>Interpolator_A.asm</Name>
             <PrgName />
             <FileType>2</FileType>
-            <IncludeInBuild>False</IncludeInBuild>
-            <Regions />
-            <Breakpoints />
-            <Bookmarks />
-            <Topmost>False</Topmost>
-            <FileOpen>False</FileOpen>
-        </SourceFile>
-        <SourceFile>
-            <Name>Interpolator_B.asm</Name>
-            <PrgName />
-            <FileType>2</FileType>
             <IncludeInBuild>True</IncludeInBuild>
             <Regions />
             <Breakpoints />
@@ -119,10 +130,10 @@
             <FileOpen>True</FileOpen>
         </SourceFile>
         <SourceFile>
-            <Name>memoryMap.asm</Name>
+            <Name>Interpolator_B.asm</Name>
             <PrgName />
             <FileType>2</FileType>
-            <IncludeInBuild>True</IncludeInBuild>
+            <IncludeInBuild>False</IncludeInBuild>
             <Regions />
             <Breakpoints />
             <Bookmarks />
@@ -130,10 +141,10 @@
             <FileOpen>False</FileOpen>
         </SourceFile>
         <SourceFile>
-            <Name>new4k.asm</Name>
+            <Name>memoryMap.asm</Name>
             <PrgName />
             <FileType>2</FileType>
-            <IncludeInBuild>False</IncludeInBuild>
+            <IncludeInBuild>True</IncludeInBuild>
             <Regions />
             <Breakpoints />
             <Bookmarks />
