@@ -3,7 +3,7 @@
 
 n0L = $19
 n0M = $20
-n0H = $21
+;n0H = $21
 
 freq     = $80           ; CIA NMI timer delay, 8kHz
 
@@ -132,14 +132,21 @@ pause
 ; We are also using two different self-modyfying 'pointers'. 
 ; loadnew+1, loadnew+2 is the 'pointer' to the current sample byte called, 'A'
 ; peeknext+1, peeknext+2 is the 'pointer' to peek at the next sample byte, 'B'
+;
+; We are usign two zero page loactions to stash our samples that are being
+; currently processes: n0M, n0L.The init routine preloads n0L with the very
+; first sample byte. We always play the low nibble of n0L non each pass.
+;
 ; All sample data is page aligned so we only need to check for end of data
 ; when crossing a page boundry and we onoly do so for "loadnew"
-;
-; We play current loA nibble, calc mid point of hiA-loA save to n0L
-; and move the hiA which was still in n0L to n0M
 ; total cycles: 22+29+7+9 = 67
+;
+; In NMI_HANDLER0 we have current sample byte 'A' stored in n0L. We will play
+; lower nibble and then interpolate the value between the lower and upper
+; nibble for the next player pass. We also need to stash the orignial high
+; nibble for the player pass after that.
 NMI_HANDLER0  
-        PHA                     ; 3- save A as we are going to use it
+        PHA                     ; 3- save A reg as we are going to use it
         LDA n0L                 ; 3- load sample byte/nibble
         ORA #$10                ; 2- make sure we don't kill filter settings
         AND #$1F                ; 2- git rid of any dangling high bits
@@ -152,11 +159,11 @@ NMI_HANDLER0
         lsr                     ; 2- doing this here to even out
         lsr                     ; 2- cycles between ISRs
         lsr                     ; 2- 
-        sta n0M                 ; 3- save hiA to mid nibble address
-        lda n0L                 ; 3- get origianl byte again
+        sta n0M                 ; 3- save to mid nibble address n0M for later
+        lda n0L                 ; 3- need to interpolate intermediate nibble 
         and #$0F                ; 2- save only lower nibble
         clc                     ; 2- clear carry before add
-        adc n0M                 ; 3- add loA to hiA and /2 
+        adc n0M                 ; 3- add low-nibble-A to hi-nibble-A and /2 
         lsr                     ; 2- to get an average
         sta n0L                 ; 3- (29) is played on next ISR as lo 
 
@@ -167,10 +174,11 @@ NMI_HANDLER0
         RTI                     ; 6- (9)
 
 
-; We play current mid of hiA+loA (in n0L), then move mid(hiA) to n0L position
+; In NMI_HANDLER1 we have the interpoalted value from hi-nibble-A and 
+; low-nibble-A already stored in n0L which is played this pass. 
 ; total cycles 22+6+7+9 = 44
 NMI_HANDLER1
-        PHA                     ; 3- save A as we are going to use it
+        PHA                     ; 3- save A reg as we are going to use it
         LDA n0L                 ; 3- load sample byte
         ORA #$10                ; 2- make sure we don't kill filter settings
         AND #$1F                ; 2- git rid of any dangling high bits
@@ -178,8 +186,8 @@ NMI_HANDLER1
         STA $D020               ; 4- change border color, something to look at
         LDA $DD0D               ; 4- (22) clear NMI
 
-        lda n0M                 ; 3- move mid(hiA) to n0L address
-        sta n0L                 ; 3- (6)
+        lda n0M                 ; 3- move hi-nibble-A to n0L address for use
+        sta n0L                 ; 3- (6) in next pass
 
         LDA #<NMI_HANDLER2      ; 3- set NMI handler address low byte
         STA $FFFA               ; 4- (7)
@@ -188,11 +196,13 @@ NMI_HANDLER1
         RTI                     ; 6- (9) 
 
 
-; We play hiA, calc mid point of loNext-hi save to lo, we do not need to check
-; if we are at the end of the sample here, that is done in NMI_HANDLER3
+; In NMI_HANDLER2 we have hi-nibble-A in n0L which is played this pass
+; Then we 'peek' at the next smaple byte and interpolate a value between its
+; low nibble and the current value in n0L. This is saved to n0L for next pass.
+; We then increment out 'peek' pointer
 ; total cycles 22+7+7+7+9 = 52 or 22+7+8+10+9 = 56
 NMI_HANDLER2
-        PHA                     ; 3- save A as we are going to use it
+        PHA                     ; 3- save A reg as we are going to use it
         LDA n0L                 ; 3- load sample byte
         ORA #$10                ; 2- make sure we don't kill filter settings
         AND #$1F                ; 2- git rid of any dangling high bits
@@ -204,7 +214,7 @@ peeknext
         lda $FFFF               ; 3- peek next sample byte via self mod. pointer
         and #$0F                ; 2- keep only the low nibble of next sample               
         clc                     ; 2- clear carry before adding next low nibble 
-        adc n0L                 ; 3- loB to previuos hi nibble hiA
+        adc n0L                 ; 3- lo-nibble-B to previuos hi-nibble-A
         lsr                     ; 2- /2 to get an average midpoint value
         sta n0L                 ; 3- (7) save it to play next as n0L
 
@@ -226,10 +236,16 @@ nextPeekPage
         RTI                     ; 6- (9)
 
 
+; In NMI_HANDLER3 we have the interpoalted value between hi-nibble-A and
+; lo-nibble-B in n0L which is played this pass. We then increment our 'loadnew'
+; pointer and check to see it we are at the end of the sample memory.
+; If not we read in the next sample byte, which is what we peeked at in
+; NMI_HANDLER2. This is our new 'A' sample which gets process in NMI_HANDLER0
+;
 ; We play midpoint of hiA-loB, load next byte, B, save to n0L
 ; total cycles 22+6+7+7+9 = 51 or 22+6+8+12+7+9 = 64
 NMI_HANDLER3
-        PHA                     ; 3- save A as we are going to use it
+        PHA                     ; 3- save A reg as we are going to use it
         LDA n0L                 ; 3- load sample byte
         ORA #$10                ; 2- make sure we don't kill filter settings
         AND #$1F                ; 2- git rid of any dangling high bits

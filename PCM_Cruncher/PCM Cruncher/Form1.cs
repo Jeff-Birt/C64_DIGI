@@ -18,6 +18,9 @@ namespace PCM_Cruncher
         StreamWriter logWriter;
 
         #region UI
+        /// <summary>
+        /// Initialize the UI
+        /// </summary>
         public Cruncher()
         {
             InitializeComponent();
@@ -38,7 +41,8 @@ namespace PCM_Cruncher
         }
 
         /// <summary>
-        /// Scale 8bit PCM file to taek up entire 0-255 range
+        /// Scale 8bit PCM file to take up entire 0-255 range
+        /// Saves file with '_SCL' appended to file name
         /// </summary>
         /// <param name="sender"></param>
         /// <param name="e"></param>
@@ -50,7 +54,7 @@ namespace PCM_Cruncher
             if (File.Exists(inputFile))
             {
                 tbStatus.Text += Environment.NewLine;
-                tbStatus.Text = "Scaling 8bit PCM 1-255 (_SCL)" + Environment.NewLine;
+                tbStatus.Text = "Scaling 8bit PCM 0-255 (_SCL)" + Environment.NewLine;
                 int minValue = 0; int maxValue = 0;
 
                 findMinMax(inputFile, true, ref minValue, ref maxValue);
@@ -82,8 +86,9 @@ namespace PCM_Cruncher
         }
 
         /// <summary>
-        /// PCM Crucncher, Round up and downsample from 8bit to 4bit PCM
+        /// PCM Cruncher, Round up and downsample from 8bit to 4bit PCM
         /// Output can be set to 4khz or 8khz
+        /// Saves file with '_CRN' appended to file name
         /// </summary>
         /// <param name="sender"></param>
         /// <param name="e"></param>
@@ -92,10 +97,6 @@ namespace PCM_Cruncher
             string inputFile = tbFile.Text;
             string outputFile = "";
             long outputFileSize = -1;
-
-            //OutputRate rate = OutputRate.SR4K;
-            //if (cbRate.SelectedIndex == 1) 
-            //    { rate = OutputRate.SR8K; }
 
             if (File.Exists(inputFile))
             {
@@ -135,8 +136,8 @@ namespace PCM_Cruncher
         }
 
         /// <summary>
-        /// Upscale a 4khz rate file to 8khz
-        /// used to test upsacling 
+        /// Upscale a 4khz rate file to 8khz, used to test upscaling 
+        /// Saves file with '_UP' appended to file name
         /// </summary>
         /// <param name="sender"></param>
         /// <param name="e"></param>
@@ -168,6 +169,8 @@ namespace PCM_Cruncher
 
         /// <summary>
         /// RLE Compress file
+        /// Saves file with '_RLE' appended to file name
+        /// Works but takes to long to decode on C64
         /// </summary>
         /// <param name="sender"></param>
         /// <param name="e"></param>
@@ -207,6 +210,7 @@ namespace PCM_Cruncher
 
         /// <summary>
         /// Decompress RLE encoded file, used as a test
+        /// Saves file with '_ELR' appended to file name
         /// </summary>
         /// <param name="sender"></param>
         /// <param name="e"></param>
@@ -242,6 +246,7 @@ namespace PCM_Cruncher
         #endregion UI
 
         #region "Data manipulation"
+
         /// <summary>
         /// Scales binary file to byte range 0-255
         /// </summary>
@@ -279,13 +284,14 @@ namespace PCM_Cruncher
         }
 
         /// <summary>
-        /// crunch 4 - Rounds a scaled file and downsample to 4bits, cruches two 4bit samples
-        /// into one output byte. Output can be set to 4khz or 8khz
+        /// Crunch to 4khz - Downsample to 4bits @ 4khz, crunches two 4bit samples
+        /// into one output byte. Output at 4khz rate by averaging two nibbles
         /// </summary>
         /// <param name="inputFile"></param>
         /// <returns>output file name</returns>
-        /// Averaging method: state->0=Byte1-lowNib-A, 1=Byte2-lowNib-B, 2=highNib-A, 3=highNib-B
-        /// Skip method: state->0=Byte1-lowNib, 2=Byte3-highNib
+        /// Averaging method: 
+        /// state->0=read Byte1, state->1=read Byte2, avg. Bytes1&2=low nibble
+        /// state->2=read Byte3, state->3=Read Byte4, avg. Bytes3&4=high nibble
         private string crunch4Avg(string inputFile)
         {
             string outputFile = "";
@@ -293,6 +299,7 @@ namespace PCM_Cruncher
             if (inputFile != "")
             {
                 int round = (int)nudRound.Value;
+                int bytesOutput = 0;
                 string tag = "_SR4KAVG_" + round.ToString() + "_RND";
                 outputFile = buildOutputFileName(inputFile, tag);
 
@@ -339,6 +346,7 @@ namespace PCM_Cruncher
                         hiByte = Math.Max(hiByte, 0x10); // never output a zero nibble
 
                         fileWriter.Write((byte)(hiByte | lowByte)); // combine hi & low nibbles
+                        bytesOutput++;
                         if (cbCSV.Checked) 
                         { 
                             writeLog(lowByte.ToString());
@@ -351,8 +359,8 @@ namespace PCM_Cruncher
                 }
 
                 // pad the file so it ends on page boundry in C64
-                int page = (int)((fileSize / 2) + 0.5) % 256;
-                int padding = page > 0 ? 256 - page : 0;
+                int orphanedBytes = bytesOutput % 256;
+                int padding = orphanedBytes > 0 ? 256 - orphanedBytes : 0;
                 for (int p = 0; p < padding; p++)
                 {
                     fileWriter.Write((byte)(lowByte | hiByte)); // combine hi & low nibbles
@@ -377,8 +385,8 @@ namespace PCM_Cruncher
         }
 
         /// <summary>
-        /// crunch 4 - Rounds a scaled file and downsample to 4bits, cruches two 4bit samples
-        /// into one output byte. Output can be set to 4khz or 8khz
+        /// Crunch 4khz - Downsample to 4bits @ 4khz, cruches two 4bit samples
+        /// into one output byte. Outputs at a 4khz rate by skipping every other nibble
         /// </summary>
         /// <param name="inputFile"></param>
         /// <returns>output file name</returns>
@@ -390,6 +398,7 @@ namespace PCM_Cruncher
             if (inputFile != "")
             {
                 int round = (int)nudRound.Value;
+                int bytesOutput = 0;
                 string tag = "_SR4KSKP_" + round.ToString() + "_RND";
                 outputFile = buildOutputFileName(inputFile, tag);
 
@@ -432,6 +441,7 @@ namespace PCM_Cruncher
                         hiByte = Math.Max(hiByte, 0x10); // never output a zero nibble
 
                         fileWriter.Write((byte)(hiByte | lowByte)); // combine hi & low nibbles
+                        bytesOutput++;
                         if (cbCSV.Checked)
                         {
                             writeLog(lowByte.ToString());
@@ -449,8 +459,8 @@ namespace PCM_Cruncher
                 }
 
                 // pad the file so it ends on page boundry in C64
-                int page = (int)((fileSize / 2) + 0.5) % 256;
-                int padding = page > 0 ? 256 - page : 0;
+                int orphanedBytes = bytesOutput % 256;
+                int padding = orphanedBytes > 0 ? 256 - orphanedBytes : 0;
                 for (int p = 0; p < padding; p++)
                 {
                     fileWriter.Write((byte)(lowByte | hiByte)); // combine hi & low nibbles
@@ -475,7 +485,7 @@ namespace PCM_Cruncher
         }
 
         /// <summary>
-        /// crunch 8 - Rounds a scaled file and downsample to 4bits, crunches two 4bit samples
+        /// Crunch 8khz - Downsample to 4bits, crunches two 4bit samples
         /// into one output byte. Output is at 8khz
         /// </summary>
         /// <param name="inputFile"></param>
@@ -487,7 +497,7 @@ namespace PCM_Cruncher
             if (inputFile != "")
             {
                 int round = (int)nudRound.Value;
-
+                int bytesOutput = 0;
                 string tag = "_SR8K_" + round.ToString() + "_RND";
                 outputFile = buildOutputFileName(inputFile, tag);
 
@@ -520,6 +530,7 @@ namespace PCM_Cruncher
                         outByte = highNibble | lowNibble;
 
                         fileWriter.Write((byte)outByte);
+                        bytesOutput++;
                         if (cbCSV.Checked) 
                         { 
                             writeLog(lowNibble.ToString());
@@ -535,8 +546,8 @@ namespace PCM_Cruncher
                 }
 
                 // pad the file so it ends on page boundry in C64
-                int page = (int)((fileSize / 2) + 0.5) % 256;
-                int padding = page > 0 ? 256 - page : 0;
+                int orphanedBytes = bytesOutput % 256;
+                int padding = orphanedBytes > 0 ? 256 - orphanedBytes : 0;
                 for (int p = 0; p < padding; p++)
                 {
                     fileWriter.Write((byte)outByte);
@@ -562,7 +573,7 @@ namespace PCM_Cruncher
 
         /// <summary>
         /// Upscale a 4khz crunched file to 8khz, this allows us to test an
-        /// externally upsacled file against the quality of the C64 upscaling
+        /// externally upscaled file against the quality of the C64 upscaling
         /// </summary>
         /// <param name="inputFile"></param>
         /// <returns></returns>
@@ -658,6 +669,7 @@ namespace PCM_Cruncher
 
         /// <summary>
         /// RLE Compress a 4bit packed sample file
+        /// This works but takes too much time to decode in C64
         /// </summary>
         /// <param name="inputFile"></param>
         /// <returns></returns>
@@ -850,6 +862,7 @@ namespace PCM_Cruncher
 
         /// <summary>
         /// Uncompress an RLE compressed 4bit packed file
+        /// Used as a test of RLE compression routine
         /// </summary>
         /// <param name="inputFile"></param>
         private string rleDecompress(string inputFile)
@@ -956,8 +969,8 @@ namespace PCM_Cruncher
         }
 
         /// <summary>
-        /// Helper to write out an RLE 'pair',
-        /// a byte where high nibble is # of encoded nibbles, and low nibble is value of encoded nibbles
+        /// Helper to write out an RLE 'pair', a byte where high nibble is 
+        /// # of encoded nibbles, and low nibble is value of encoded nibbles
         /// </summary>
         /// <param name="fileWriter"></param>
         /// <param name="count"></param>

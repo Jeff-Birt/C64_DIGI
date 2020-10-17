@@ -28,6 +28,7 @@
         /// </summary>
         private void InitializeComponent()
         {
+            System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(Cruncher));
             this.btnFile = new System.Windows.Forms.Button();
             this.tbFile = new System.Windows.Forms.TextBox();
             this.btnCrunch8 = new System.Windows.Forms.Button();
@@ -254,9 +255,10 @@
             this.Controls.Add(this.label1);
             this.Controls.Add(this.tbStatus);
             this.Controls.Add(this.tbFile);
+            this.Icon = ((System.Drawing.Icon)(resources.GetObject("$this.Icon")));
             this.Margin = new System.Windows.Forms.Padding(4);
             this.Name = "Cruncher";
-            this.Text = "Cruncher - Hey Birt";
+            this.Text = "PCM Cruncher - Hey Birt";
             ((System.ComponentModel.ISupportInitialize)(this.nudRound)).EndInit();
             this.groupBox1.ResumeLayout(false);
             this.groupBox1.PerformLayout();

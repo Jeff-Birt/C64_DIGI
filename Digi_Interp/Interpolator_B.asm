@@ -3,7 +3,7 @@
 
 n0L = $92
 n0M = $93
-n0H = $96
+;n0H = $96
 ctr = $97
 
 freq     = $80           ; CIA NMI timer delay, 8kHz
@@ -106,6 +106,9 @@ freq     = $80           ; CIA NMI timer delay, 8kHz
         LDA #$11                ;
         STA $DD0E               ; CRA interrupt enable
 
+        LDA #$FE                ; 2- reset counter/index
+        STA ctr                 ; 3- (5)
+
         LDA #$00                ;
         STA done                ; reset player done flag
 
@@ -123,7 +126,7 @@ pause
 ; NMI Handler
 ;
 ; We have one main NMI ISR entry point in this interpolating player version
-; but ee have four different paths after the n0L nibble is played, ISR0-ISR3.
+; but we have four different paths after the n0L nibble is played, ISR0-ISR3.
 ; Each ISR_# handles loading/masking/shifting the sample data so the next
 ; nibble to play is always in n0L
 ; 
