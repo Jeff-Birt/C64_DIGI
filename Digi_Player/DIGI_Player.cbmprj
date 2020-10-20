@@ -41,9 +41,9 @@
         <PostBuildCommands />
     </BuildEvents>
     <BuildList>
-        <FileName>Digi_Player_Simple_3.asm</FileName>
         <FileName>memoryMap.asm</FileName>
-        <FileName>Hey Birt 4.asm</FileName>
+        <FileName>Digi_Player_Simple_3.asm</FileName>
+        <FileName>Destroy_Him_8K_SR4KAVG_4_RND_UP8K.asm</FileName>
     </BuildList>
     <DetermineBuildOrder>1</DetermineBuildOrder>
     <PaddingByte>0</PaddingByte>
@@ -78,7 +78,7 @@
             <Name>Destroy_Him_8K_SR4KAVG_4_RND_UP8K.asm</Name>
             <PrgName />
             <FileType>2</FileType>
-            <IncludeInBuild>False</IncludeInBuild>
+            <IncludeInBuild>True</IncludeInBuild>
             <Regions />
             <Breakpoints />
             <Bookmarks />
@@ -164,28 +164,6 @@
         </SourceFile>
         <SourceFile>
             <Name>Digi_Player_Simple_3.asm</Name>
-            <PrgName />
-            <FileType>2</FileType>
-            <IncludeInBuild>True</IncludeInBuild>
-            <Regions />
-            <Breakpoints />
-            <Bookmarks />
-            <Topmost>False</Topmost>
-            <FileOpen>True</FileOpen>
-        </SourceFile>
-        <SourceFile>
-            <Name>Hey Birt 2.asm</Name>
-            <PrgName />
-            <FileType>2</FileType>
-            <IncludeInBuild>False</IncludeInBuild>
-            <Regions />
-            <Breakpoints />
-            <Bookmarks />
-            <Topmost>False</Topmost>
-            <FileOpen>False</FileOpen>
-        </SourceFile>
-        <SourceFile>
-            <Name>Hey Birt 4.asm</Name>
             <PrgName />
             <FileType>2</FileType>
             <IncludeInBuild>True</IncludeInBuild>

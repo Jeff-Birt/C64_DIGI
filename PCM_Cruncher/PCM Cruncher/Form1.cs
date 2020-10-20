@@ -55,11 +55,11 @@ namespace PCM_Cruncher
             {
                 tbStatus.Text += Environment.NewLine;
                 tbStatus.Text = "Scaling 8bit PCM 0-255 (_SCL)" + Environment.NewLine;
-                int minValue = 0; int maxValue = 0;
+                int minValue = 255; int maxValue = -255;
 
-                findMinMax(inputFile, true, ref minValue, ref maxValue);
+                findMinMax(inputFile, cbSigned.Checked, ref minValue, ref maxValue);
                 double scalar = findScalar(minValue, maxValue);
-                double offset = -(maxValue - Math.Abs(minValue))/2.0;
+                double offset = -1 * minValue;
 
                 tbStatus.Text += "Original Min: " + minValue.ToString() + Environment.NewLine;
                 tbStatus.Text += "Original Max: " + maxValue.ToString() + Environment.NewLine;
@@ -68,8 +68,8 @@ namespace PCM_Cruncher
 
                 outputFile = scaleFile(inputFile, scalar, offset);
                 tbFile.Text = outputFile;   // update file name text box
-                
-                maxValue = 128; minValue = 128;
+
+                minValue = 255; maxValue = -255;
                 if (File.Exists(outputFile))
                 {
                     findMinMax(outputFile, false, ref minValue, ref maxValue);
@@ -261,13 +261,22 @@ namespace PCM_Cruncher
 
                 FileStream inputfs = new FileStream(inputFile, FileMode.Open, FileAccess.Read);
                 BinaryReader fileReader = new BinaryReader(inputfs);
-                FileStream outputfs = new FileStream(outputFile, FileMode.CreateNew);
+                FileStream outputfs = new FileStream(outputFile, FileMode.Create);
                 BinaryWriter fileWriter = new BinaryWriter(outputfs);
 
+                int v1 = 0;
                 long fileSize = inputfs.Length;
                 for (long i = 0; i < fileSize; i++)
                 {
-                    int v1 = (int)(((double)fileReader.ReadSByte() + offset) * scalar) + 128;
+                    if (cbSigned.Checked)
+                    {
+                        v1 = (int)(((double)fileReader.ReadSByte() + offset) * scalar);
+                    }
+                    else
+                    {
+                        v1 = (int)(((double)fileReader.ReadByte() + offset) * scalar);
+                    }
+
                     v1 = Math.Min(255, v1); // keep from going over
                     v1 = Math.Max(0, v1);   // or under range
 
@@ -504,7 +513,7 @@ namespace PCM_Cruncher
                 FileStream inputfs = new FileStream(inputFile, FileMode.Open, FileAccess.Read);
                 BinaryReader fileReader = new BinaryReader(inputfs);
 
-                FileStream outputfs = new FileStream(outputFile, FileMode.CreateNew);
+                FileStream outputfs = new FileStream(outputFile, FileMode.Create);
                 BinaryWriter fileWriter = new BinaryWriter(outputfs);
 
                 if (cbCSV.Checked) { createLogFile(outputFile); }
@@ -587,7 +596,7 @@ namespace PCM_Cruncher
 
                 FileStream inputfs = new FileStream(inputFile, FileMode.Open, FileAccess.Read);
                 BinaryReader fileReader = new BinaryReader(inputfs);
-                FileStream outputfs = new FileStream(outputFile, FileMode.CreateNew);
+                FileStream outputfs = new FileStream(outputFile, FileMode.Create);
                 BinaryWriter fileWriter = new BinaryWriter(outputfs);
 
                 if (cbCSV.Checked) { createLogFile(outputFile); }
@@ -687,7 +696,7 @@ namespace PCM_Cruncher
 
                 FileStream inputfs = new FileStream(inputFile, FileMode.Open, FileAccess.Read);
                 BinaryReader fileReader = new BinaryReader(inputfs);
-                FileStream outputfs = new FileStream(outputFile, FileMode.CreateNew);
+                FileStream outputfs = new FileStream(outputFile, FileMode.Create);
                 BinaryWriter fileWriter = new BinaryWriter(outputfs);
 
                 long fileSize = inputfs.Length;
@@ -880,7 +889,7 @@ namespace PCM_Cruncher
 
                 FileStream inputfs = new FileStream(inputFile, FileMode.Open, FileAccess.Read);
                 BinaryReader fileReader = new BinaryReader(inputfs);
-                FileStream outputfs = new FileStream(outputFile, FileMode.CreateNew);
+                FileStream outputfs = new FileStream(outputFile, FileMode.Create);
                 BinaryWriter fileWriter = new BinaryWriter(outputfs);
 
                 long fileSize = inputfs.Length;
@@ -1048,7 +1057,7 @@ namespace PCM_Cruncher
         /// <returns></returns>
         private double findScalar(int minValue, int maxValue)
         {
-            double span = Math.Abs(minValue) + maxValue;
+            double span = maxValue - minValue;
             return 255 / span;
         }
         #endregion "Misc helper methods"

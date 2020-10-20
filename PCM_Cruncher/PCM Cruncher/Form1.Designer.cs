@@ -46,6 +46,7 @@
             this.groupBox1 = new System.Windows.Forms.GroupBox();
             this.groupBox2 = new System.Windows.Forms.GroupBox();
             this.groupBox3 = new System.Windows.Forms.GroupBox();
+            this.cbSigned = new System.Windows.Forms.CheckBox();
             ((System.ComponentModel.ISupportInitialize)(this.nudRound)).BeginInit();
             this.groupBox1.SuspendLayout();
             this.groupBox2.SuspendLayout();
@@ -54,10 +55,9 @@
             // 
             // btnFile
             // 
-            this.btnFile.Location = new System.Drawing.Point(22, 32);
-            this.btnFile.Margin = new System.Windows.Forms.Padding(4);
+            this.btnFile.Location = new System.Drawing.Point(16, 26);
             this.btnFile.Name = "btnFile";
-            this.btnFile.Size = new System.Drawing.Size(159, 28);
+            this.btnFile.Size = new System.Drawing.Size(119, 23);
             this.btnFile.TabIndex = 0;
             this.btnFile.Text = "#1 File";
             this.btnFile.UseVisualStyleBackColor = true;
@@ -65,18 +65,16 @@
             // 
             // tbFile
             // 
-            this.tbFile.Location = new System.Drawing.Point(259, 62);
-            this.tbFile.Margin = new System.Windows.Forms.Padding(4);
+            this.tbFile.Location = new System.Drawing.Point(194, 50);
             this.tbFile.Name = "tbFile";
-            this.tbFile.Size = new System.Drawing.Size(664, 22);
+            this.tbFile.Size = new System.Drawing.Size(499, 20);
             this.tbFile.TabIndex = 1;
             // 
             // btnCrunch8
             // 
-            this.btnCrunch8.Location = new System.Drawing.Point(22, 122);
-            this.btnCrunch8.Margin = new System.Windows.Forms.Padding(4);
+            this.btnCrunch8.Location = new System.Drawing.Point(16, 99);
             this.btnCrunch8.Name = "btnCrunch8";
-            this.btnCrunch8.Size = new System.Drawing.Size(159, 28);
+            this.btnCrunch8.Size = new System.Drawing.Size(119, 23);
             this.btnCrunch8.TabIndex = 2;
             this.btnCrunch8.Text = "#3 Crunch";
             this.btnCrunch8.UseVisualStyleBackColor = true;
@@ -84,10 +82,9 @@
             // 
             // btnScale
             // 
-            this.btnScale.Location = new System.Drawing.Point(22, 78);
-            this.btnScale.Margin = new System.Windows.Forms.Padding(4);
+            this.btnScale.Location = new System.Drawing.Point(16, 63);
             this.btnScale.Name = "btnScale";
-            this.btnScale.Size = new System.Drawing.Size(159, 28);
+            this.btnScale.Size = new System.Drawing.Size(119, 23);
             this.btnScale.TabIndex = 4;
             this.btnScale.Text = "#2 Scale";
             this.btnScale.UseVisualStyleBackColor = true;
@@ -95,31 +92,28 @@
             // 
             // tbStatus
             // 
-            this.tbStatus.Location = new System.Drawing.Point(259, 116);
-            this.tbStatus.Margin = new System.Windows.Forms.Padding(4);
+            this.tbStatus.Location = new System.Drawing.Point(194, 94);
             this.tbStatus.Multiline = true;
             this.tbStatus.Name = "tbStatus";
             this.tbStatus.ScrollBars = System.Windows.Forms.ScrollBars.Vertical;
-            this.tbStatus.Size = new System.Drawing.Size(664, 418);
+            this.tbStatus.Size = new System.Drawing.Size(499, 349);
             this.tbStatus.TabIndex = 5;
             // 
             // label1
             // 
             this.label1.AutoSize = true;
             this.label1.Font = new System.Drawing.Font("Microsoft Sans Serif", 12F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.label1.Location = new System.Drawing.Point(253, 22);
-            this.label1.Margin = new System.Windows.Forms.Padding(4, 0, 4, 0);
+            this.label1.Location = new System.Drawing.Point(356, 18);
             this.label1.Name = "label1";
-            this.label1.Size = new System.Drawing.Size(382, 25);
+            this.label1.Size = new System.Drawing.Size(337, 20);
             this.label1.TabIndex = 6;
-            this.label1.Text = "File should be a RAW 8-bit signed @ 8kHz";
+            this.label1.Text = "File should be a RAW 8-bit (un)signed @ 8kHz";
             // 
             // btnCompress
             // 
-            this.btnCompress.Location = new System.Drawing.Point(22, 78);
-            this.btnCompress.Margin = new System.Windows.Forms.Padding(4);
+            this.btnCompress.Location = new System.Drawing.Point(16, 63);
             this.btnCompress.Name = "btnCompress";
-            this.btnCompress.Size = new System.Drawing.Size(152, 28);
+            this.btnCompress.Size = new System.Drawing.Size(114, 23);
             this.btnCompress.TabIndex = 7;
             this.btnCompress.Text = "RLE Compress";
             this.btnCompress.UseVisualStyleBackColor = true;
@@ -127,10 +121,9 @@
             // 
             // btnDecompress
             // 
-            this.btnDecompress.Location = new System.Drawing.Point(22, 122);
-            this.btnDecompress.Margin = new System.Windows.Forms.Padding(4);
+            this.btnDecompress.Location = new System.Drawing.Point(16, 99);
             this.btnDecompress.Name = "btnDecompress";
-            this.btnDecompress.Size = new System.Drawing.Size(152, 28);
+            this.btnDecompress.Size = new System.Drawing.Size(114, 23);
             this.btnDecompress.TabIndex = 8;
             this.btnDecompress.Text = "RLE Decompress";
             this.btnDecompress.UseVisualStyleBackColor = true;
@@ -138,24 +131,22 @@
             // 
             // cbRate
             // 
-            this.cbRate.DisplayMember = "1";
+            this.cbRate.DisplayMember = "3";
             this.cbRate.FormattingEnabled = true;
             this.cbRate.Items.AddRange(new object[] {
             "4kHz Avg",
             "4kHz Skp",
             "8kHz"});
-            this.cbRate.Location = new System.Drawing.Point(7, 31);
-            this.cbRate.Margin = new System.Windows.Forms.Padding(4);
+            this.cbRate.Location = new System.Drawing.Point(5, 25);
             this.cbRate.Name = "cbRate";
-            this.cbRate.Size = new System.Drawing.Size(98, 24);
+            this.cbRate.Size = new System.Drawing.Size(74, 21);
             this.cbRate.TabIndex = 9;
             // 
             // btnUpscale
             // 
-            this.btnUpscale.Location = new System.Drawing.Point(22, 32);
-            this.btnUpscale.Margin = new System.Windows.Forms.Padding(4);
+            this.btnUpscale.Location = new System.Drawing.Point(16, 26);
             this.btnUpscale.Name = "btnUpscale";
-            this.btnUpscale.Size = new System.Drawing.Size(152, 28);
+            this.btnUpscale.Size = new System.Drawing.Size(114, 23);
             this.btnUpscale.TabIndex = 10;
             this.btnUpscale.Text = "Upscale 4khz->8khz";
             this.btnUpscale.UseVisualStyleBackColor = true;
@@ -163,14 +154,15 @@
             // 
             // nudRound
             // 
-            this.nudRound.Location = new System.Drawing.Point(7, 62);
+            this.nudRound.Location = new System.Drawing.Point(5, 50);
+            this.nudRound.Margin = new System.Windows.Forms.Padding(2);
             this.nudRound.Maximum = new decimal(new int[] {
             10,
             0,
             0,
             0});
             this.nudRound.Name = "nudRound";
-            this.nudRound.Size = new System.Drawing.Size(72, 22);
+            this.nudRound.Size = new System.Drawing.Size(54, 20);
             this.nudRound.TabIndex = 11;
             this.nudRound.Value = new decimal(new int[] {
             2,
@@ -181,27 +173,30 @@
             // label2
             // 
             this.label2.AutoSize = true;
-            this.label2.Location = new System.Drawing.Point(112, 34);
+            this.label2.Location = new System.Drawing.Point(84, 28);
+            this.label2.Margin = new System.Windows.Forms.Padding(2, 0, 2, 0);
             this.label2.Name = "label2";
-            this.label2.Size = new System.Drawing.Size(80, 17);
+            this.label2.Size = new System.Drawing.Size(60, 13);
             this.label2.TabIndex = 12;
             this.label2.Text = "Output rate";
             // 
             // label3
             // 
             this.label3.AutoSize = true;
-            this.label3.Location = new System.Drawing.Point(85, 67);
+            this.label3.Location = new System.Drawing.Point(64, 54);
+            this.label3.Margin = new System.Windows.Forms.Padding(2, 0, 2, 0);
             this.label3.Name = "label3";
-            this.label3.Size = new System.Drawing.Size(107, 17);
+            this.label3.Size = new System.Drawing.Size(82, 13);
             this.label3.TabIndex = 13;
             this.label3.Text = "Rounding value";
             // 
             // cbCSV
             // 
             this.cbCSV.AutoSize = true;
-            this.cbCSV.Location = new System.Drawing.Point(42, 100);
+            this.cbCSV.Location = new System.Drawing.Point(32, 81);
+            this.cbCSV.Margin = new System.Windows.Forms.Padding(2);
             this.cbCSV.Name = "cbCSV";
-            this.cbCSV.Size = new System.Drawing.Size(103, 21);
+            this.cbCSV.Size = new System.Drawing.Size(81, 17);
             this.cbCSV.TabIndex = 14;
             this.cbCSV.Text = "Create CSV";
             this.cbCSV.UseVisualStyleBackColor = true;
@@ -213,9 +208,11 @@
             this.groupBox1.Controls.Add(this.label2);
             this.groupBox1.Controls.Add(this.label3);
             this.groupBox1.Controls.Add(this.nudRound);
-            this.groupBox1.Location = new System.Drawing.Point(26, 210);
+            this.groupBox1.Location = new System.Drawing.Point(20, 172);
+            this.groupBox1.Margin = new System.Windows.Forms.Padding(2);
             this.groupBox1.Name = "groupBox1";
-            this.groupBox1.Size = new System.Drawing.Size(200, 127);
+            this.groupBox1.Padding = new System.Windows.Forms.Padding(2);
+            this.groupBox1.Size = new System.Drawing.Size(150, 103);
             this.groupBox1.TabIndex = 15;
             this.groupBox1.TabStop = false;
             this.groupBox1.Text = "Output Configuration";
@@ -225,9 +222,11 @@
             this.groupBox2.Controls.Add(this.btnFile);
             this.groupBox2.Controls.Add(this.btnScale);
             this.groupBox2.Controls.Add(this.btnCrunch8);
-            this.groupBox2.Location = new System.Drawing.Point(26, 22);
+            this.groupBox2.Location = new System.Drawing.Point(20, 18);
+            this.groupBox2.Margin = new System.Windows.Forms.Padding(2);
             this.groupBox2.Name = "groupBox2";
-            this.groupBox2.Size = new System.Drawing.Size(200, 165);
+            this.groupBox2.Padding = new System.Windows.Forms.Padding(2);
+            this.groupBox2.Size = new System.Drawing.Size(150, 134);
             this.groupBox2.TabIndex = 16;
             this.groupBox2.TabStop = false;
             this.groupBox2.Text = "Crunching";
@@ -237,18 +236,32 @@
             this.groupBox3.Controls.Add(this.btnUpscale);
             this.groupBox3.Controls.Add(this.btnCompress);
             this.groupBox3.Controls.Add(this.btnDecompress);
-            this.groupBox3.Location = new System.Drawing.Point(26, 360);
+            this.groupBox3.Location = new System.Drawing.Point(25, 302);
+            this.groupBox3.Margin = new System.Windows.Forms.Padding(2);
             this.groupBox3.Name = "groupBox3";
-            this.groupBox3.Size = new System.Drawing.Size(200, 174);
+            this.groupBox3.Padding = new System.Windows.Forms.Padding(2);
+            this.groupBox3.Size = new System.Drawing.Size(150, 141);
             this.groupBox3.TabIndex = 17;
             this.groupBox3.TabStop = false;
             this.groupBox3.Text = "Aux Function";
             // 
+            // cbSigned
+            // 
+            this.cbSigned.AutoSize = true;
+            this.cbSigned.Location = new System.Drawing.Point(194, 22);
+            this.cbSigned.Margin = new System.Windows.Forms.Padding(2);
+            this.cbSigned.Name = "cbSigned";
+            this.cbSigned.Size = new System.Drawing.Size(78, 17);
+            this.cbSigned.TabIndex = 18;
+            this.cbSigned.Text = "Signed File";
+            this.cbSigned.UseVisualStyleBackColor = true;
+            // 
             // Cruncher
             // 
-            this.AutoScaleDimensions = new System.Drawing.SizeF(8F, 16F);
+            this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(959, 554);
+            this.ClientSize = new System.Drawing.Size(719, 470);
+            this.Controls.Add(this.cbSigned);
             this.Controls.Add(this.groupBox3);
             this.Controls.Add(this.groupBox2);
             this.Controls.Add(this.groupBox1);
@@ -256,7 +269,6 @@
             this.Controls.Add(this.tbStatus);
             this.Controls.Add(this.tbFile);
             this.Icon = ((System.Drawing.Icon)(resources.GetObject("$this.Icon")));
-            this.Margin = new System.Windows.Forms.Padding(4);
             this.Name = "Cruncher";
             this.Text = "PCM Cruncher - Hey Birt";
             ((System.ComponentModel.ISupportInitialize)(this.nudRound)).EndInit();
@@ -288,6 +300,7 @@
         private System.Windows.Forms.GroupBox groupBox1;
         private System.Windows.Forms.GroupBox groupBox2;
         private System.Windows.Forms.GroupBox groupBox3;
+        private System.Windows.Forms.CheckBox cbSigned;
     }
 }
 
