@@ -43,7 +43,8 @@
     <BuildList>
         <FileName>memoryMap.asm</FileName>
         <FileName>Digi_Player_Simple_3.asm</FileName>
-        <FileName>Destroy_Him_8K_SR4KAVG_4_RND_UP8K.asm</FileName>
+        <FileName>Testing 1-2-3 8K6R.asm</FileName>
+        <FileName>Testing 1-2-3 4K4R.asm</FileName>
     </BuildList>
     <DetermineBuildOrder>1</DetermineBuildOrder>
     <PaddingByte>0</PaddingByte>
@@ -78,7 +79,7 @@
             <Name>Destroy_Him_8K_SR4KAVG_4_RND_UP8K.asm</Name>
             <PrgName />
             <FileType>2</FileType>
-            <IncludeInBuild>True</IncludeInBuild>
+            <IncludeInBuild>False</IncludeInBuild>
             <Regions />
             <Breakpoints />
             <Bookmarks />
@@ -170,11 +171,88 @@
             <Regions />
             <Breakpoints />
             <Bookmarks />
-            <Topmost>True</Topmost>
+            <Topmost>False</Topmost>
             <FileOpen>True</FileOpen>
         </SourceFile>
         <SourceFile>
+            <Name>Hi Jeff 8K2R.asm</Name>
+            <PrgName />
+            <FileType>2</FileType>
+            <IncludeInBuild>False</IncludeInBuild>
+            <Regions />
+            <Breakpoints />
+            <Bookmarks />
+            <Topmost>False</Topmost>
+            <FileOpen>False</FileOpen>
+        </SourceFile>
+        <SourceFile>
+            <Name>Hi Jeff 8K4R.asm</Name>
+            <PrgName />
+            <FileType>2</FileType>
+            <IncludeInBuild>False</IncludeInBuild>
+            <Regions />
+            <Breakpoints />
+            <Bookmarks />
+            <Topmost>False</Topmost>
+            <FileOpen>False</FileOpen>
+        </SourceFile>
+        <SourceFile>
+            <Name>Hi Jeff 8K6R.asm</Name>
+            <PrgName />
+            <FileType>2</FileType>
+            <IncludeInBuild>False</IncludeInBuild>
+            <Regions />
+            <Breakpoints />
+            <Bookmarks />
+            <Topmost>False</Topmost>
+            <FileOpen>False</FileOpen>
+        </SourceFile>
+        <SourceFile>
             <Name>memoryMap.asm</Name>
+            <PrgName />
+            <FileType>2</FileType>
+            <IncludeInBuild>True</IncludeInBuild>
+            <Regions />
+            <Breakpoints />
+            <Bookmarks />
+            <Topmost>False</Topmost>
+            <FileOpen>False</FileOpen>
+        </SourceFile>
+        <SourceFile>
+            <Name>Testing 1-2-3 4K4R.asm</Name>
+            <PrgName />
+            <FileType>2</FileType>
+            <IncludeInBuild>True</IncludeInBuild>
+            <Regions />
+            <Breakpoints />
+            <Bookmarks />
+            <Topmost>False</Topmost>
+            <FileOpen>True</FileOpen>
+        </SourceFile>
+        <SourceFile>
+            <Name>Testing 1-2-3 8K2R.asm</Name>
+            <PrgName />
+            <FileType>2</FileType>
+            <IncludeInBuild>False</IncludeInBuild>
+            <Regions />
+            <Breakpoints />
+            <Bookmarks />
+            <Topmost>False</Topmost>
+            <FileOpen>False</FileOpen>
+        </SourceFile>
+        <SourceFile>
+            <Name>Testing 1-2-3 8K4R.asm</Name>
+            <PrgName />
+            <FileType>2</FileType>
+            <IncludeInBuild>False</IncludeInBuild>
+            <Regions />
+            <Breakpoints />
+            <Bookmarks />
+            <Topmost>False</Topmost>
+            <FileOpen>False</FileOpen>
+        </SourceFile>
+        <SourceFile>
+            <Name>Testing 1-2-3 8K6R.asm</Name>
             <PrgName />
             <FileType>2</FileType>
             <IncludeInBuild>True</IncludeInBuild>

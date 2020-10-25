@@ -314,7 +314,7 @@ namespace PCM_Cruncher
 
                 FileStream inputfs = new FileStream(inputFile, FileMode.Open, FileAccess.Read);
                 BinaryReader fileReader = new BinaryReader(inputfs);
-                FileStream outputfs = new FileStream(outputFile, FileMode.CreateNew);
+                FileStream outputfs = new FileStream(outputFile, FileMode.Create);
                 BinaryWriter fileWriter = new BinaryWriter(outputfs);
 
                 if (cbCSV.Checked) { createLogFile(outputFile); }
@@ -322,6 +322,7 @@ namespace PCM_Cruncher
                 int state = 0;
                 int lowByte = 0;
                 int hiByte = 0;
+                int lastByte = 0; // need to keep track of last byte output to pad file
                 long fileSize = inputfs.Length;
                 for (long i = 0; i < fileSize; i++)
                 {
@@ -354,7 +355,9 @@ namespace PCM_Cruncher
                         hiByte = hiByte & 0xF0; // same effect as scaling to 4-bit shifting to upper nibble
                         hiByte = Math.Max(hiByte, 0x10); // never output a zero nibble
 
-                        fileWriter.Write((byte)(hiByte | lowByte)); // combine hi & low nibbles
+                        lastByte = (byte)(hiByte | lowByte); // combine hi & low nibbles
+
+                        fileWriter.Write((byte)lastByte);
                         bytesOutput++;
                         if (cbCSV.Checked) 
                         { 
@@ -372,7 +375,7 @@ namespace PCM_Cruncher
                 int padding = orphanedBytes > 0 ? 256 - orphanedBytes : 0;
                 for (int p = 0; p < padding; p++)
                 {
-                    fileWriter.Write((byte)(lowByte | hiByte)); // combine hi & low nibbles
+                    fileWriter.Write((byte)lastByte); // combine hi & low nibbles
                     if (cbCSV.Checked)
                     {
                         writeLog(lowByte.ToString());
@@ -413,7 +416,7 @@ namespace PCM_Cruncher
 
                 FileStream inputfs = new FileStream(inputFile, FileMode.Open, FileAccess.Read);
                 BinaryReader fileReader = new BinaryReader(inputfs);
-                FileStream outputfs = new FileStream(outputFile, FileMode.CreateNew);
+                FileStream outputfs = new FileStream(outputFile, FileMode.Create);
                 BinaryWriter fileWriter = new BinaryWriter(outputfs);
 
                 if (cbCSV.Checked) { createLogFile(outputFile); }
@@ -421,6 +424,7 @@ namespace PCM_Cruncher
                 int state = 0;
                 int lowByte = 0;
                 int hiByte = 0;
+                int lastByte = 0; // need to keep track of last byte output to pad file
                 long fileSize = inputfs.Length;
                 for (long i = 0; i < fileSize; i++)
                 {
@@ -449,7 +453,9 @@ namespace PCM_Cruncher
                         hiByte = hiByte & 0xF0; // same effect as scaling to 4-bit shifting to upper nibble
                         hiByte = Math.Max(hiByte, 0x10); // never output a zero nibble
 
-                        fileWriter.Write((byte)(hiByte | lowByte)); // combine hi & low nibbles
+                        lastByte = (byte)(hiByte | lowByte); // combine hi & low nibbles
+
+                        fileWriter.Write((byte)lastByte);
                         bytesOutput++;
                         if (cbCSV.Checked)
                         {
@@ -472,7 +478,7 @@ namespace PCM_Cruncher
                 int padding = orphanedBytes > 0 ? 256 - orphanedBytes : 0;
                 for (int p = 0; p < padding; p++)
                 {
-                    fileWriter.Write((byte)(lowByte | hiByte)); // combine hi & low nibbles
+                    fileWriter.Write((byte)lastByte); // combine hi & low nibbles
                     if (cbCSV.Checked)
                     {
                         writeLog(lowByte.ToString());
